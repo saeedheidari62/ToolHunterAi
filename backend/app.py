@@ -1,5 +1,5 @@
 from flask import Flask
-from backend.backend.decision_engine import evaluate_tool
+from backend.decision_engine import evaluate_tool
 
 app = Flask(__name__)
 
