@@ -1,2 +1,10 @@
+TOOLS = []
+
 def search(tool_name):
-    return f"Searching for: {tool_name}"
+    TOOLS.append(tool_name)
+
+    return {
+        "query": tool_name,
+        "status": "received",
+        "count": len(TOOLS)
+    }
