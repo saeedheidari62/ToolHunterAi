@@ -1,21 +1,8 @@
-from flask import Flask
-from backend.decision_engine import evaluate_tool
+from decision_engine import make_decision
 
-app = Flask(__name__)
+tool_name = "Bosch_GBH_2_26"
 
-@app.route("/")
-def home():
-    return "ToolHunterAI API is running"
+result = make_decision(tool_name)
 
-@app.route("/search")
-def search():
-    sample_tool = {
-        "price": 90,
-        "tested": True
-    }
-
-    result = evaluate_tool(sample_tool)
-    return result
-
-if __name__ == "__main__":
-    app.run()
+print("Decision:", result["decision"])
+print("Reason:", result["reason"])
