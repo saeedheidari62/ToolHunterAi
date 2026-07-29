@@ -2,65 +2,42 @@
   "tool_name": "Bosch GBH 2-26",
   "category": "Rotary Hammer",
   "brand": "Bosch",
-  "professional_level": "Professional",
 
-  "market_data": {
+  "market": {
     "new_price": null,
-    "used_price_range": {
-      "min": null,
-      "max": null
-    }
+    "used_price_min": null,
+    "used_price_max": null
   },
-
-  "strengths": [
-    "Reliable professional rotary hammer",
-    "Strong spare parts availability",
-    "Suitable for construction and drilling tasks"
-  ],
 
   "common_failures": [
-    "Bearing wear",
-    "Carbon brush wear",
-    "Gear damage",
-    "Hammer mechanism weakness"
+    "Worn carbon brushes",
+    "Broken chuck",
+    "Bearing noise",
+    "Gearbox wear",
+    "Hammer mode failure",
+    "Armature damage"
   ],
 
-  "inspection_checklist": [
-    "Test impact function",
-    "Check abnormal sounds",
-    "Check vibration level",
-    "Check overheating",
-    "Check chuck condition"
+  "inspection": [
+    "Check drilling power",
+    "Test hammer mode",
+    "Listen for bearing noise",
+    "Check excessive sparking",
+    "Inspect chuck movement",
+    "Inspect power cable"
   ],
 
-  "risk_factors": {
-    "high_risk": [
-      "No physical test allowed",
-      "Unknown repair history",
-      "Very low price compared to market"
-    ],
-    "medium_risk": [
-      "Old device",
-      "Heavy usage signs"
-    ]
+  "repair": {
+    "difficulty": "Medium",
+    "parts_available": true
   },
 
-  "decision_logic": {
-    "buy": [
-      "Price is below market average",
-      "Tool passes physical test",
-      "Seller provides usage information"
-    ],
+  "risk": {
+    "score": 30,
+    "level": "Low"
+  },
 
-    "review": [
-      "Fair price but incomplete information",
-      "Test is limited"
-    ],
+  "buy_score": 85,
 
-    "avoid": [
-      "Seller refuses testing",
-      "Signs of internal repair",
-      "Unusual noise or vibration"
-    ]
-  }
+  "recommendation": "BUY"
 }
