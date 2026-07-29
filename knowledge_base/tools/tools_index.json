@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {
+      "id": "bosch_gbh_2_26",
+      "name": "Bosch GBH 2-26",
+      "brand": "Bosch",
+      "category": "Rotary Hammer",
+      "file": "Bosch_GBH_2_26.json"
+    }
+  ]
+}
