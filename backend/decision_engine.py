@@ -10,26 +10,43 @@ def load_tool(tool_name):
         return json.load(file)
 
 
-def make_decision(tool_name):
+def make_decision(ad_data):
+    tool_name = ad_data["tool_name"]
     tool = load_tool(tool_name)
 
     risk_score = tool["risk"]["score"]
     buy_score = tool["buy_score"]
 
+    asking_price = ad_data.get("asking_price", 0)
+    market_price = tool["market"].get("used_price_max")
+
+    reasons = []
+
+    if market_price is not None:
+        if asking_price <= market_price:
+            reasons.append("Price is acceptable.")
+        else:
+            reasons.append("Price is higher than market value.")
+            buy_score -= 10
+
+    if ad_data.get("has_test"):
+        reasons.append("Seller allows testing.")
+        buy_score += 5
+
+    if ad_data.get("has_warranty"):
+        reasons.append("Seller provides warranty.")
+        buy_score += 5
+
     if risk_score <= 30 and buy_score >= 80:
-        return {
-            "decision": "BUY",
-            "reason": "Low risk and high buy score."
-        }
-
+        decision = "BUY"
     elif risk_score <= 60:
-        return {
-            "decision": "REVIEW",
-            "reason": "Needs more inspection before purchase."
-        }
-
+        decision = "REVIEW"
     else:
-        return {
-            "decision": "DON'T BUY",
-            "reason": "Risk is too high."
-        }
+        decision = "DON'T BUY"
+
+    return {
+        "decision": decision,
+        "buy_score": buy_score,
+        "risk_score": risk_score,
+        "reasons": reasons
+    }
