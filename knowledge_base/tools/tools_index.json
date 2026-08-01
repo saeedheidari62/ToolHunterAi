@@ -2,10 +2,17 @@
   "tools": [
     {
       "id": "bosch_gbh_2_26",
-      "name": "Bosch gbn 2-26",
+      "name": "Bosch GBH 2-26",
       "brand": "Bosch",
       "category": "Rotary Hammer",
       "file": "bosch_gbh_2_26.json"
+    },
+    {
+      "id": "makita_hr2470",
+      "name": "Makita HR2470",
+      "brand": "Makita",
+      "category": "Rotary Hammer",
+      "file": "makita_hr2470.json"
     }
   ]
 }

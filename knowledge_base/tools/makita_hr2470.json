@@ -1,0 +1,43 @@
+{
+  "tool_name": "Makita HR2470",
+  "category": "Rotary Hammer",
+  "brand": "Makita",
+
+  "market": {
+    "new_price": null,
+    "used_price_min": null,
+    "used_price_max": null
+  },
+
+  "common_failures": [
+    "Worn carbon brushes",
+    "Chuck wear",
+    "Bearing noise",
+    "Gearbox wear",
+    "Hammer mechanism failure",
+    "Armature damage"
+  ],
+
+  "inspection": [
+    "Check drilling power",
+    "Test hammer mode",
+    "Listen for bearing noise",
+    "Check excessive sparking",
+    "Inspect chuck movement",
+    "Inspect power cable"
+  ],
+
+  "repair": {
+    "difficulty": "Medium",
+    "parts_available": true
+  },
+
+  "risk": {
+    "score": 30,
+    "level": "Low"
+  },
+
+  "buy_score": 85,
+
+  "recommendation": "BUY"
+}
