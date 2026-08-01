@@ -4,7 +4,7 @@ from decision_engine import make_decision
 
 def main():
     sample_ad = {
-        "tool_name": "Bosch_GBH_2_26",
+        "tool_name": "bosch_gbh_2_26",
         "asking_price": 8500000,
         "seller_type": "Personal",
         "has_test": True,
