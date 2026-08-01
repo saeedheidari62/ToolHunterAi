@@ -3,8 +3,10 @@ from decision_engine import make_decision
 
 
 def main():
+    tool_name = input("Enter tool id (example: bosch_gbh_2_26 or makita_hr2470): ").strip()
+
     sample_ad = {
-        "tool_name": "bosch_gbh_2_26",
+        "tool_name": tool_name,
         "asking_price": 8500000,
         "seller_type": "Personal",
         "has_test": True,
@@ -16,7 +18,7 @@ def main():
 
     result = make_decision(analyzed_ad)
 
-    print("========== ToolHunterAI ==========")
+    print("\n========== ToolHunterAI ==========")
     print(f"Tool: {analyzed_ad['tool_name']}")
     print(f"Price: {analyzed_ad['asking_price']}")
     print(f"Decision: {result['decision']}")
