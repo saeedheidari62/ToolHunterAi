@@ -2,33 +2,42 @@ from ad_analyzer import analyze_ad
 from decision_engine import make_decision
 
 
-def main():
-    tool_name = input(
-        "Enter tool id (example: bosch_gbh_2_26 or makita_hr2470): "
-    ).strip()
+def yes_no_input(message):
+    answer = input(message).strip().lower()
+    return answer in ["y", "yes"]
 
-    sample_ad = {
+
+def main():
+    print("========== ToolHunterAI ==========\n")
+
+    tool_name = input("Tool ID: ").strip()
+    asking_price = int(input("Asking Price: "))
+    seller_type = input("Seller Type (Personal/Business): ").strip().title()
+    has_test = yes_no_input("Testing available? (y/n): ")
+    has_warranty = yes_no_input("Warranty available? (y/n): ")
+    condition = input("Condition (New/Used): ").strip().title()
+    description = input("Description: ").strip()
+
+    ad_data = {
         "tool_name": tool_name,
-        "asking_price": 8500000,
-        "seller_type": "Personal",
-        "has_test": True,
-        "has_warranty": False,
-        "condition": "Used"
+        "asking_price": asking_price,
+        "seller_type": seller_type,
+        "has_test": has_test,
+        "has_warranty": has_warranty,
+        "condition": condition,
+        "description": description
     }
 
-    # Analyze advertisement
-    analyzed_ad = analyze_ad(sample_ad)
-
-    # Make final decision
+    analyzed_ad = analyze_ad(ad_data)
     result = make_decision(analyzed_ad)
 
-    print("\n========== ToolHunterAI ==========")
-    print(f"Tool: {analyzed_ad['tool_name']}")
-    print(f"Price: {analyzed_ad['asking_price']}")
+    print("\n========== RESULT ==========")
+    print(f"Tool: {tool_name}")
+    print(f"Price: {asking_price:,}")
     print(f"Decision: {result['decision']}")
     print(f"Buy Score: {result['buy_score']}")
     print(f"Risk Score: {result['risk_score']}")
-    print(f"Ad Score: {result.get('ad_score', 'N/A')}")
+    print(f"Ad Score: {result['ad_score']}")
 
     print("\nReasons:")
     for reason in result["reasons"]:

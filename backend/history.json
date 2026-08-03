@@ -1,0 +1,11 @@
+[
+    {
+        "tool_name": "bosch_gbh_2_26",
+        "price": 8500000,
+        "decision": "BUY",
+        "buy_score": 96,
+        "risk_score": 30,
+        "ad_score": 90,
+        "date": "2026-08-03 08:51:13"
+    }
+]

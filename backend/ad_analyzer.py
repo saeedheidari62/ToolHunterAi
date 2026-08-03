@@ -28,7 +28,35 @@ def analyze_ad(ad_data):
     elif ad_data.get("condition") == "New":
         reasons.append("New tool.")
 
-    # Keep score between 0 and 100
+    # Description analysis
+    description = ad_data.get("description", "").lower()
+
+    positive_words = [
+        "clean",
+        "low usage",
+        "healthy",
+        "testing available",
+        "like new"
+    ]
+
+    negative_words = [
+        "repair",
+        "broken",
+        "fault",
+        "problem",
+        "burned"
+    ]
+
+    for word in positive_words:
+        if word in description:
+            score += 3
+            reasons.append(f"Positive description: {word}")
+
+    for word in negative_words:
+        if word in description:
+            score -= 10
+            reasons.append(f"Risk description: {word}")
+
     score = max(0, min(100, score))
 
     return {
@@ -38,6 +66,7 @@ def analyze_ad(ad_data):
         "has_test": ad_data.get("has_test"),
         "has_warranty": ad_data.get("has_warranty"),
         "condition": ad_data.get("condition"),
+        "description": description,
         "ad_score": score,
         "analysis": reasons
     }
