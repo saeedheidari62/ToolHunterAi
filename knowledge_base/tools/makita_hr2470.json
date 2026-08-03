@@ -3,28 +3,34 @@
   "category": "Rotary Hammer",
   "brand": "Makita",
 
+  "technical": {
+    "score": 90
+  },
+
+  "brand_info": {
+    "score": 93
+  },
+
   "market": {
-    "new_price": null,
-    "used_price_min": null,
-    "used_price_max": null
+    "new_price": 13500000,
+    "used_price_min": 7500000,
+    "used_price_max": 9000000
   },
 
   "common_failures": [
     "Worn carbon brushes",
-    "Chuck wear",
     "Bearing noise",
-    "Gearbox wear",
+    "Chuck wear",
     "Hammer mechanism failure",
     "Armature damage"
   ],
 
   "inspection": [
-    "Check drilling power",
     "Test hammer mode",
+    "Check drilling power",
     "Listen for bearing noise",
-    "Check excessive sparking",
-    "Inspect chuck movement",
-    "Inspect power cable"
+    "Inspect chuck",
+    "Check cable condition"
   ],
 
   "repair": {
@@ -33,11 +39,11 @@
   },
 
   "risk": {
-    "score": 30,
+    "score": 35,
     "level": "Low"
   },
 
-  "buy_score": 85,
+  "buy_score": 82,
 
   "recommendation": "BUY"
 }

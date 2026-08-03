@@ -3,7 +3,9 @@ from decision_engine import make_decision
 
 
 def main():
-    tool_name = input("Enter tool id (example: bosch_gbh_2_26 or makita_hr2470): ").strip()
+    tool_name = input(
+        "Enter tool id (example: bosch_gbh_2_26 or makita_hr2470): "
+    ).strip()
 
     sample_ad = {
         "tool_name": tool_name,
@@ -14,8 +16,10 @@ def main():
         "condition": "Used"
     }
 
+    # Analyze advertisement
     analyzed_ad = analyze_ad(sample_ad)
 
+    # Make final decision
     result = make_decision(analyzed_ad)
 
     print("\n========== ToolHunterAI ==========")
@@ -24,8 +28,9 @@ def main():
     print(f"Decision: {result['decision']}")
     print(f"Buy Score: {result['buy_score']}")
     print(f"Risk Score: {result['risk_score']}")
-    print("Reasons:")
+    print(f"Ad Score: {result.get('ad_score', 'N/A')}")
 
+    print("\nReasons:")
     for reason in result["reasons"]:
         print(f"- {reason}")
 

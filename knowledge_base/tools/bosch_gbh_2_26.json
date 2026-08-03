@@ -3,10 +3,18 @@
   "category": "Rotary Hammer",
   "brand": "Bosch",
 
+  "technical": {
+    "score": 92
+  },
+
+  "brand_info": {
+    "score": 95
+  },
+
   "market": {
-    "new_price": null,
-    "used_price_min": null,
-    "used_price_max": null
+    "new_price": 14500000,
+    "used_price_min": 8000000,
+    "used_price_max": 9500000
   },
 
   "common_failures": [
