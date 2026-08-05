@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تاریخچه تحلیل‌ها</title>
+
+<style>
+body{
+    font-family:Arial;
+    background:#f2f2f2;
+    padding:20px;
+}
+
+.container{
+    max-width:800px;
+    margin:auto;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    margin-bottom:15px;
+    border-radius:12px;
+    box-shadow:0 0 8px rgba(0,0,0,.1);
+}
+
+.button{
+    display:block;
+    text-align:center;
+    background:#222;
+    color:white;
+    text-decoration:none;
+    padding:15px;
+    border-radius:10px;
+    margin-top:20px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📋 تاریخچه تحلیل‌ها</h1>
+
+{% if history %}
+
+{% for item in history %}
+
+<div class="card">
+
+<p><strong>ابزار:</strong> {{ item.tool_name }}</p>
+
+<p><strong>قیمت:</strong> {{ item.price }}</p>
+
+<p><strong>نتیجه:</strong> {{ item.decision }}</p>
+
+<p><strong>Buy Score:</strong> {{ item.buy_score }}</p>
+
+<p><strong>Risk Score:</strong> {{ item.risk_score }}</p>
+
+<p><strong>Ad Score:</strong> {{ item.ad_score }}</p>
+
+<p><strong>تاریخ:</strong> {{ item.date }}</p>
+
+</div>
+
+{% endfor %}
+
+{% else %}
+
+<p>هنوز تحلیلی ذخیره نشده است.</p>
+
+{% endif %}
+
+<a class="button" href="/">بازگشت</a>
+
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>نتیجه تحلیل</title>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f2f2f2;
+    margin:0;
+    padding:20px;
+}
+
+.container{
+    max-width:700px;
+    margin:auto;
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 0 10px rgba(0,0,0,.15);
+}
+
+h1{
+    text-align:center;
+}
+
+.score{
+    background:#f7f7f7;
+    padding:12px;
+    border-radius:8px;
+    margin-top:10px;
+}
+
+ul{
+    line-height:1.8;
+}
+
+.button{
+    display:block;
+    text-align:center;
+    text-decoration:none;
+    background:#222;
+    color:white;
+    padding:15px;
+    border-radius:10px;
+    margin-top:20px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>نتیجه تحلیل ToolHunterAI</h1>
+
+<h2>{{ result.decision }}</h2>
+
+<div class="score">
+<strong>Buy Score:</strong>
+{{ result.buy_score }}
+</div>
+
+<div class="score">
+<strong>Risk Score:</strong>
+{{ result.risk_score }}
+</div>
+
+<div class="score">
+<strong>Ad Score:</strong>
+{{ result.ad_score }}
+</div>
+
+<h3>دلایل تصمیم</h3>
+
+<ul>
+
+{% for reason in result.reasons %}
+
+<li>{{ reason }}</li>
+
+{% endfor %}
+
+</ul>
+
+<a class="button" href="/">
+
+بازگشت
+
+</a>
+
+</div>
+
+</body>
+
+</html>

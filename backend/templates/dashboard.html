@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Dashboard</title>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f2f2f2;
+    margin:0;
+    padding:20px;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+}
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:15px;
+}
+
+.card{
+    background:white;
+    border-radius:12px;
+    padding:20px;
+    text-align:center;
+    box-shadow:0 0 8px rgba(0,0,0,.1);
+}
+
+.number{
+    font-size:32px;
+    font-weight:bold;
+    margin-top:10px;
+}
+
+.button{
+    display:block;
+    margin-top:30px;
+    text-align:center;
+    background:#222;
+    color:white;
+    text-decoration:none;
+    padding:15px;
+    border-radius:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📊 Dashboard</h1>
+
+<div class="cards">
+
+<div class="card">
+<div>کل تحلیل‌ها</div>
+<div class="number">{{ total }}</div>
+</div>
+
+<div class="card">
+<div>BUY</div>
+<div class="number">{{ buy }}</div>
+</div>
+
+<div class="card">
+<div>REVIEW</div>
+<div class="number">{{ review }}</div>
+</div>
+
+<div class="card">
+<div>DON'T BUY</div>
+<div class="number">{{ dont_buy }}</div>
+</div>
+
+<div class="card">
+<div>میانگین Buy Score</div>
+<div class="number">{{ avg_buy }}</div>
+</div>
+
+</div>
+
+<a class="button" href="/">
+بازگشت به صفحه اصلی
+</a>
+
+</div>
+
+</body>
+
+</html>

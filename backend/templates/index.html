@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ToolHunterAI</title>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f3f3f3;
+    margin:0;
+    padding:20px;
+}
+
+.container{
+
+    max-width:700px;
+    margin:auto;
+
+    background:white;
+
+    padding:25px;
+
+    border-radius:15px;
+
+    box-shadow:0 0 10px rgba(0,0,0,.15);
+
+}
+
+h1{
+
+    text-align:center;
+
+}
+
+label{
+
+    display:block;
+
+    margin-top:15px;
+
+    font-weight:bold;
+
+}
+
+input,textarea{
+
+    width:100%;
+
+    padding:12px;
+
+    margin-top:5px;
+
+    border-radius:8px;
+
+    border:1px solid #ccc;
+
+    box-sizing:border-box;
+
+}
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    margin-top:20px;
+
+    background:#222;
+
+    color:white;
+
+    border:none;
+
+    border-radius:10px;
+
+    font-size:18px;
+
+    cursor:pointer;
+
+}
+
+.menu{
+
+    display:flex;
+
+    gap:10px;
+
+    margin-top:20px;
+
+}
+
+.menu a{
+
+    flex:1;
+
+    text-align:center;
+
+    text-decoration:none;
+
+    background:#444;
+
+    color:white;
+
+    padding:12px;
+
+    border-radius:8px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🔧 ToolHunterAI</h1>
+
+<form action="/analyze" method="post" enctype="multipart/form-data">
+
+<label>شناسه ابزار</label>
+
+<input
+name="tool_id"
+placeholder="bosch_gbh_2_26"
+required>
+
+<label>قیمت</label>
+
+<input
+type="number"
+name="price"
+required>
+
+<label>نوع فروشنده</label>
+
+<input
+name="seller_type"
+placeholder="Personal">
+
+<label>تست دارد؟</label>
+
+<input
+name="has_test"
+placeholder="yes / no">
+
+<label>گارانتی دارد؟</label>
+
+<input
+name="has_warranty"
+placeholder="yes / no">
+
+<label>وضعیت</label>
+
+<input
+name="condition"
+placeholder="Used">
+
+<label>توضیحات آگهی</label>
+
+<textarea
+name="description"
+rows="5"></textarea>
+
+<label>عکس آگهی</label>
+
+<input
+type="file"
+name="image">
+
+<button type="submit">
+
+تحلیل آگهی
+
+</button>
+
+</form>
+
+<div class="menu">
+
+<a href="/history">
+
+تاریخچه
+
+</a>
+
+<a href="/dashboard">
+
+داشبورد
+
+</a>
+
+</div>
+
+</div>
+
+</body>
+
+</html>
