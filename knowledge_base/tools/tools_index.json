@@ -5,14 +5,31 @@
       "name": "Bosch GBH 2-26",
       "brand": "Bosch",
       "category": "Rotary Hammer",
-      "file": "bosch_gbh_2_26.json"
+      "file": "bosch_gbh_2_26.json",
+      "aliases": [
+        "gbh226",
+        "gbh 2 26",
+        "gbh 2-26",
+        "bosch 2 26",
+        "بوش ۲۶",
+        "بتن کن بوش"
+      ]
     },
     {
       "id": "makita_hr2470",
       "name": "Makita HR2470",
       "brand": "Makita",
       "category": "Rotary Hammer",
-      "file": "makita_hr2470.json"
+      "file": "makita_hr2470.json",
+      "aliases": [
+        "hr2470",
+        "hr 2470",
+        "makita 2470",
+        "ماکیتا 2470",
+        "ماکیتا hr2470",
+        "ماکیتا اچ آر 2470",
+        "بتن کن ماکیتا"
+      ]
     }
   ]
 }
