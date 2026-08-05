@@ -1,47 +1,114 @@
-from ad_analyzer import analyze_ad
+from collector import AdCollector
 from decision_engine import make_decision
+from ad_analyzer import analyze_ad
+from tool_matcher import ToolMatcher
 
 
-def yes_no_input(message):
-    answer = input(message).strip().lower()
-    return answer in ["y", "yes"]
+collector = AdCollector()
+matcher = ToolMatcher()
 
 
 def main():
-    print("========== ToolHunterAI ==========\n")
 
-    tool_name = input("Tool ID: ").strip()
-    asking_price = int(input("Asking Price: "))
-    seller_type = input("Seller Type (Personal/Business): ").strip().title()
-    has_test = yes_no_input("Testing available? (y/n): ")
-    has_warranty = yes_no_input("Warranty available? (y/n): ")
-    condition = input("Condition (New/Used): ").strip().title()
-    description = input("Description: ").strip()
+    print("=== ToolHunterAI ===")
 
-    ad_data = {
-        "tool_name": tool_name,
-        "asking_price": asking_price,
-        "seller_type": seller_type,
-        "has_test": has_test,
-        "has_warranty": has_warranty,
-        "condition": condition,
-        "description": description
+
+    title = input("Ad Title: ")
+
+    description = input(
+        "Ad Description: "
+    )
+
+    price = int(
+        input("Price: ")
+    )
+
+    seller_type = input(
+        "Seller Type (Personal/Business): "
+    )
+
+
+    has_test = input(
+        "Testing available? (y/n): "
+    ).lower() == "y"
+
+
+    has_warranty = input(
+        "Warranty available? (y/n): "
+    ).lower() == "y"
+
+
+    condition = input(
+        "Condition (New/Used): "
+    )
+
+
+    ad_data = collector.collect(
+        title=title,
+        description=description,
+        price=price,
+        seller_type=seller_type,
+        testing=has_test,
+        warranty=has_warranty,
+        condition=condition
+    )
+
+
+    print("\nCollected Data:")
+    print(ad_data)
+
+
+    tool_id = matcher.match(
+        title + " " + description
+    )
+
+
+    if not tool_id:
+
+        print(
+            "\nTool not recognized."
+        )
+
+        return
+
+
+    print("\nDetected Tool:")
+    print(tool_id)
+
+
+
+    ad_analysis = analyze_ad(
+        ad_data
+    )
+
+
+    decision_data = {
+
+        "tool_name": tool_id,
+
+        "asking_price": ad_data["price"],
+
+        "has_test": ad_data["has_test"],
+
+        "has_warranty": ad_data["has_warranty"],
+
+        "description": ad_data["description"],
+
+        "ad_score": ad_analysis["ad_score"],
+
+        "analysis": ad_analysis["analysis"]
+
     }
 
-    analyzed_ad = analyze_ad(ad_data)
-    result = make_decision(analyzed_ad)
 
-    print("\n========== RESULT ==========")
-    print(f"Tool: {tool_name}")
-    print(f"Price: {asking_price:,}")
-    print(f"Decision: {result['decision']}")
-    print(f"Buy Score: {result['buy_score']}")
-    print(f"Risk Score: {result['risk_score']}")
-    print(f"Ad Score: {result['ad_score']}")
+    result = make_decision(
+        decision_data
+    )
 
-    print("\nReasons:")
-    for reason in result["reasons"]:
-        print(f"- {reason}")
+
+    print("\n=== Decision ===")
+    print(result)
+
 
 
 if __name__ == "__main__":
