@@ -25,11 +25,15 @@ def make_decision(ad_data):
 
     reasons = []
 
-    # دلایل تحلیل آگهی
+    # Structured decision data
+    has_test = bool(ad_data.get("has_test"))
+    has_warranty = bool(ad_data.get("has_warranty"))
+    price_status = "unknown"
+
+    # Ad analysis reasons
     reasons.extend(ad_data.get("analysis", []))
 
-
-    # تحلیل توضیحات آگهی
+    # Description analysis
     description = ad_data.get("description", "")
 
     description_result = analyze_description(description)
@@ -40,55 +44,83 @@ def make_decision(ad_data):
         description_result["description_reasons"]
     )
 
-
-    # بررسی قیمت
+    # Price analysis
     asking_price = ad_data.get("asking_price", 0)
 
-    market_price = tool.get("market", {}).get("used_price_max")
-
+    market_price = tool.get(
+        "market",
+        {}
+    ).get(
+        "used_price_max"
+    )
 
     if market_price is not None:
 
         if asking_price <= market_price:
-            reasons.append("Price is acceptable.")
+
+            price_status = "acceptable"
+
+            reasons.append(
+                "Price is acceptable."
+            )
+
             buy_score += 5
 
         else:
-            reasons.append("Price is higher than market value.")
+
+            price_status = "high"
+
+            reasons.append(
+                "Price is higher than market value."
+            )
+
             buy_score -= 10
 
     else:
-        reasons.append("Market price unavailable.")
 
+        price_status = "unknown"
 
+        reasons.append(
+            "Market price unavailable."
+        )
 
-    # تست
-    if ad_data.get("has_test"):
+    # Testing
+    if has_test:
 
-        reasons.append("Seller allows testing.")
+        reasons.append(
+            "Seller allows testing."
+        )
+
         buy_score += 5
 
     else:
 
-        reasons.append("No testing available.")
+        reasons.append(
+            "No testing available."
+        )
+
         risk_score += 10
 
+    # Warranty
+    if has_warranty:
 
+        reasons.append(
+            "Seller provides warranty."
+        )
 
-    # گارانتی
-    if ad_data.get("has_warranty"):
-
-        reasons.append("Seller provides warranty.")
         buy_score += 5
 
+    buy_score = max(
+        0,
+        min(100, round(buy_score))
+    )
 
+    risk_score = max(
+        0,
+        min(100, round(risk_score))
+    )
 
-    buy_score = max(0, min(100, round(buy_score)))
-
-    risk_score = max(0, min(100, round(risk_score)))
-
-
-
+    # Final decision
     if buy_score >= 85 and risk_score <= 40:
 
         decision = "BUY"
@@ -101,18 +133,13 @@ def make_decision(ad_data):
 
         decision = "DON'T BUY"
 
-
-
     return {
-
         "decision": decision,
-
         "buy_score": buy_score,
-
         "risk_score": risk_score,
-
         "ad_score": ad_score,
-
+        "has_test": has_test,
+        "has_warranty": has_warranty,
+        "price_status": price_status,
         "reasons": reasons
-
     }
