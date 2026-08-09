@@ -1,0 +1,159 @@
+from flask import Flask, jsonify, request
+
+from collector import AdCollector
+from decision_engine import make_decision
+from ad_analyzer import analyze_ad
+from tool_matcher import ToolMatcher
+from rank_engine import RankEngine
+from decision_explainer import DecisionExplainer
+
+
+app = Flask(__name__)
+
+collector = AdCollector()
+matcher = ToolMatcher()
+ranker = RankEngine()
+explainer = DecisionExplainer()
+
+
+def analyze_single_ad(ad):
+
+    required_fields = [
+        "title",
+        "description",
+        "price",
+        "seller_type"
+    ]
+
+    missing_fields = [
+        field
+        for field in required_fields
+        if field not in ad
+    ]
+
+    if missing_fields:
+        return {
+            "error": "Missing required fields.",
+            "missing_fields": missing_fields
+        }
+
+    collected_ad = collector.collect(
+        title=ad["title"],
+        description=ad["description"],
+        price=ad["price"],
+        seller_type=ad["seller_type"],
+        testing=ad.get("testing", False),
+        warranty=ad.get("warranty", False),
+        condition=ad.get("condition", "used")
+    )
+
+    tool_id = matcher.match(
+        collected_ad["title"]
+        + " "
+        + collected_ad["description"]
+    )
+
+    if not tool_id:
+        return {
+            "error": "Tool not recognized.",
+            "title": collected_ad["title"]
+        }
+
+    ad_analysis = analyze_ad(collected_ad)
+
+    decision_data = {
+        "tool_name": tool_id,
+        "asking_price": collected_ad["price"],
+        "has_test": collected_ad["has_test"],
+        "has_warranty": collected_ad["has_warranty"],
+        "description": collected_ad["description"],
+        "ad_score": ad_analysis["ad_score"],
+        "analysis": ad_analysis["analysis"]
+    }
+
+    result = make_decision(decision_data)
+
+    result["has_test"] = collected_ad["has_test"]
+    result["has_warranty"] = collected_ad["has_warranty"]
+    result["price_status"] = result.get(
+        "price_status",
+        "unknown"
+    )
+    result["tool"] = tool_id
+    result["title"] = collected_ad["title"]
+
+    return result
+
+
+@app.route("/health", methods=["GET"])
+def health():
+
+    return jsonify({
+        "status": "ok",
+        "service": "ToolHunterAI API"
+    })
+
+
+@app.route("/analyze", methods=["POST"])
+def analyze():
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "error": "Invalid or missing JSON data."
+        }), 400
+
+    if "ads" not in data:
+        return jsonify({
+            "error": "Field 'ads' is required."
+        }), 400
+
+    ads = data["ads"]
+
+    if not isinstance(ads, list):
+        return jsonify({
+            "error": "Field 'ads' must be a list."
+        }), 400
+
+    if not ads:
+        return jsonify({
+            "error": "Ads list cannot be empty."
+        }), 400
+
+    results = []
+
+    for ad in ads:
+
+        result = analyze_single_ad(ad)
+
+        if "error" not in result:
+            results.append(result)
+
+    if not results:
+        return jsonify({
+            "error": "No valid ads could be analyzed."
+        }), 400
+
+    final = ranker.rank(results)
+
+    explanation = explainer.explain(
+        final["best_choice"],
+        final["ranking"]
+    )
+
+    return jsonify({
+        "best_choice": final["best_choice"],
+        "ranking": final["ranking"],
+        "total_ads": final["total_ads"],
+        "explanation": explanation
+    })
+
+
+if __name__ == "__main__":
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )
