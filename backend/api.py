@@ -9,6 +9,11 @@ from ad_analyzer import analyze_ad
 from tool_matcher import ToolMatcher
 from rank_engine import RankEngine
 from decision_explainer import DecisionExplainer
+from history_manager import (
+    save_history,
+    get_history,
+    get_history_by_id
+)
 
 
 app = Flask(__name__)
@@ -86,10 +91,12 @@ def analyze_single_ad(ad):
 
     result["has_test"] = collected_ad["has_test"]
     result["has_warranty"] = collected_ad["has_warranty"]
+
     result["price_status"] = result.get(
         "price_status",
         "unknown"
     )
+
     result["tool"] = tool_id
     result["title"] = collected_ad["title"]
 
@@ -168,21 +175,60 @@ def analyze():
     analysis_id = create_analysis_id()
     created_at = create_timestamp()
 
+    analysis_record = {
+        "analysis_id": analysis_id,
+        "created_at": created_at,
+        "service": "ToolHunterAI API",
+        "version": "2.0",
+        "total_ads": final["total_ads"],
+        "best_choice": final["best_choice"],
+        "ranking": final["ranking"],
+        "explanation": explanation,
+        "errors": errors
+    }
+
+    save_history(analysis_record)
+
     return jsonify({
         "analysis_id": analysis_id,
         "created_at": created_at,
         "service": "ToolHunterAI API",
         "version": "2.0",
-
         "total_ads": final["total_ads"],
-
         "best_choice": final["best_choice"],
-
         "ranking": final["ranking"],
-
         "explanation": explanation,
-
         "errors": errors
+    })
+
+
+@app.route("/history", methods=["GET"])
+def history():
+
+    records = get_history()
+
+    return jsonify({
+        "service": "ToolHunterAI API",
+        "total": len(records),
+        "history": records
+    })
+
+
+@app.route("/history/<analysis_id>", methods=["GET"])
+def history_detail(analysis_id):
+
+    record = get_history_by_id(analysis_id)
+
+    if record is None:
+
+        return jsonify({
+            "error": "Analysis not found.",
+            "analysis_id": analysis_id
+        }), 404
+
+    return jsonify({
+        "service": "ToolHunterAI API",
+        "analysis": record
     })
 
 
@@ -190,6 +236,6 @@ if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-port=5000,
+        port=5000,
         debug=True
     )
