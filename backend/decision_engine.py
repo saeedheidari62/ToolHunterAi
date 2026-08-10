@@ -1,13 +1,26 @@
 import json
 from pathlib import Path
+
 from description_analyzer import analyze_description
+from price_analyzer import analyze_price
 
 
 def load_tool(tool_name):
-    base_path = Path(__file__).resolve().parent.parent
-    file_path = base_path / "knowledge_base" / "tools" / f"{tool_name}.json"
 
-    with open(file_path, "r", encoding="utf-8") as file:
+    base_path = Path(__file__).resolve().parent.parent
+
+    file_path = (
+        base_path
+        / "knowledge_base"
+        / "tools"
+        / f"{tool_name}.json"
+    )
+
+    with open(
+        file_path,
+        "r",
+        encoding="utf-8"
+    ) as file:
         return json.load(file)
 
 
@@ -21,68 +34,102 @@ def make_decision(ad_data):
 
     ad_score = ad_data.get("ad_score", 50)
 
-    buy_score = (base_buy_score * 0.8) + (ad_score * 0.2)
+    buy_score = (
+        base_buy_score * 0.8
+    ) + (
+        ad_score * 0.2
+    )
 
     reasons = []
 
-    # Structured decision data
-    has_test = bool(ad_data.get("has_test"))
-    has_warranty = bool(ad_data.get("has_warranty"))
-    price_status = "unknown"
+    has_test = bool(
+        ad_data.get("has_test")
+    )
+
+    has_warranty = bool(
+        ad_data.get("has_warranty")
+    )
 
     # Ad analysis reasons
-    reasons.extend(ad_data.get("analysis", []))
+    reasons.extend(
+        ad_data.get("analysis", [])
+    )
 
     # Description analysis
-    description = ad_data.get("description", "")
+    description = ad_data.get(
+        "description",
+        ""
+    )
 
-    description_result = analyze_description(description)
+    description_result = analyze_description(
+        description
+    )
 
-    risk_score += description_result["description_risk"]
+    risk_score += description_result[
+        "description_risk"
+    ]
 
     reasons.extend(
-        description_result["description_reasons"]
+        description_result[
+            "description_reasons"
+        ]
     )
 
-    # Price analysis
-    asking_price = ad_data.get("asking_price", 0)
-
-    market_price = tool.get(
-        "market",
-        {}
-    ).get(
-        "used_price_max"
+    # Price Engine v2
+    asking_price = ad_data.get(
+        "asking_price",
+        0
     )
 
-    if market_price is not None:
+    price_result = analyze_price(
+        tool,
+        asking_price
+    )
 
-        if asking_price <= market_price:
+    price_status = price_result[
+        "price_status"
+    ]
 
-            price_status = "acceptable"
+    price_score = price_result[
+        "price_score"
+    ]
+
+    price_difference_percent = price_result.get(
+        "price_difference_percent"
+    )
+
+    reasons.extend(
+        price_result["price_reason"]
+    )
+
+    # Price contribution to Buy Score
+    price_adjustment = (
+    price_score - 50
+) * 0.15
+    buy_score += price_adjustment
+
+    # Extra risk for suspiciously low prices
+    if price_status == "VERY_GOOD_PRICE":
+
+        if (
+            price_difference_percent is not None
+            and price_difference_percent <= -10
+        ):
+
+            risk_score += 10
 
             reasons.append(
-                "Price is acceptable."
+                "Price is unusually low and requires verification."
             )
 
-            buy_score += 5
+    # High price penalty
+    if price_status == "HIGH_PRICE":
 
-        else:
+        risk_score += 5
 
-            price_status = "high"
+    elif price_status == "VERY_HIGH_PRICE":
 
-            reasons.append(
-                "Price is higher than market value."
-            )
-
-            buy_score -= 10
-
-    else:
-
-        price_status = "unknown"
-
-        reasons.append(
-            "Market price unavailable."
-        )
+        risk_score += 15
 
     # Testing
     if has_test:
@@ -91,7 +138,7 @@ def make_decision(ad_data):
             "Seller allows testing."
         )
 
-        buy_score += 5
+        buy_score += 3
 
     else:
 
@@ -112,20 +159,32 @@ def make_decision(ad_data):
 
     buy_score = max(
         0,
-        min(100, round(buy_score))
+        min(
+            100,
+            round(buy_score)
+        )
     )
 
     risk_score = max(
         0,
-        min(100, round(risk_score))
+        min(
+            100,
+            round(risk_score)
+        )
     )
 
     # Final decision
-    if buy_score >= 85 and risk_score <= 40:
+    if (
+        buy_score >= 85
+        and risk_score <= 40
+    ):
 
         decision = "BUY"
 
-    elif buy_score >= 60 and risk_score <= 60:
+    elif (
+        buy_score >= 60
+        and risk_score <= 60
+    ):
 
         decision = "REVIEW"
 
@@ -141,5 +200,9 @@ def make_decision(ad_data):
         "has_test": has_test,
         "has_warranty": has_warranty,
         "price_status": price_status,
+        "price_score": price_score,
+        "price_difference_percent": (
+            price_difference_percent
+        ),
         "reasons": reasons
     }
