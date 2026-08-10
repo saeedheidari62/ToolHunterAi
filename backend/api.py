@@ -14,7 +14,7 @@ from history_manager import (
     get_history,
     get_history_by_id
 )
-
+from ad_normalizer import AdNormalizer
 
 app = Flask(__name__)
 
@@ -22,7 +22,7 @@ collector = AdCollector()
 matcher = ToolMatcher()
 ranker = RankEngine()
 explainer = DecisionExplainer()
-
+normalizer = AdNormalizer()
 
 def create_analysis_id():
     return str(uuid.uuid4())
@@ -34,24 +34,15 @@ def create_timestamp():
 
 def analyze_single_ad(ad):
 
-    required_fields = [
-        "title",
-        "description",
-        "price",
-        "seller_type"
-    ]
+    normalized = normalizer.normalize(ad)
 
-    missing_fields = [
-        field
-        for field in required_fields
-        if field not in ad
-    ]
-
-    if missing_fields:
+    if not normalized["valid"]:
         return {
-            "error": "Missing required fields.",
-            "missing_fields": missing_fields
+            "error": "Invalid advertisement data.",
+            "errors": normalized["errors"]
         }
+
+    ad = normalized["ad"]
 
     collected_ad = collector.collect(
         title=ad["title"],
