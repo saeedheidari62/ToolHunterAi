@@ -1,3 +1,6 @@
+import uuid
+from datetime import datetime, timezone
+
 from flask import Flask, jsonify, request
 
 from collector import AdCollector
@@ -14,6 +17,14 @@ collector = AdCollector()
 matcher = ToolMatcher()
 ranker = RankEngine()
 explainer = DecisionExplainer()
+
+
+def create_analysis_id():
+    return str(uuid.uuid4())
+
+
+def create_timestamp():
+    return datetime.now(timezone.utc).isoformat()
 
 
 def analyze_single_ad(ad):
@@ -90,7 +101,8 @@ def health():
 
     return jsonify({
         "status": "ok",
-        "service": "ToolHunterAI API"
+        "service": "ToolHunterAI API",
+        "version": "2.0"
     })
 
 
@@ -122,17 +134,28 @@ def analyze():
         }), 400
 
     results = []
+    errors = []
 
-    for ad in ads:
+    for index, ad in enumerate(ads):
 
         result = analyze_single_ad(ad)
 
-        if "error" not in result:
+        if "error" in result:
+
+            errors.append({
+                "index": index,
+                "error": result
+            })
+
+        else:
+
             results.append(result)
 
     if not results:
+
         return jsonify({
-            "error": "No valid ads could be analyzed."
+            "error": "No valid ads could be analyzed.",
+            "errors": errors
         }), 400
 
     final = ranker.rank(results)
@@ -142,11 +165,24 @@ def analyze():
         final["ranking"]
     )
 
+    analysis_id = create_analysis_id()
+    created_at = create_timestamp()
+
     return jsonify({
-        "best_choice": final["best_choice"],
-        "ranking": final["ranking"],
+        "analysis_id": analysis_id,
+        "created_at": created_at,
+        "service": "ToolHunterAI API",
+        "version": "2.0",
+
         "total_ads": final["total_ads"],
-        "explanation": explanation
+
+        "best_choice": final["best_choice"],
+
+        "ranking": final["ranking"],
+
+        "explanation": explanation,
+
+        "errors": errors
     })
 
 
@@ -154,6 +190,6 @@ if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-        port=5000,
+port=5000,
         debug=True
     )
