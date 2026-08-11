@@ -134,17 +134,11 @@ def make_decision(ad_data):
 
             risk_score += 20
 
-            reasons.append(
-                "Price is significantly below market and requires verification."
-            )
 
         elif price_difference_percent <= -10:
 
             risk_score += 10
 
-            reasons.append(
-                "Price is unusually low and requires verification."
-            )
 
     # High price penalty
     if price_status == "HIGH_PRICE":
@@ -198,22 +192,13 @@ def make_decision(ad_data):
     )
 
     # Final decision
-    if (
-        buy_score >= 85
-        and risk_score <= 40
-    ):
-
-        decision = "BUY"
-
-    elif (
-        buy_score >= 60
-        and risk_score <= 60
-    ):
-
+    if not has_test and not has_warranty:
         decision = "REVIEW"
-
+    elif buy_score >= 85 and risk_score <= 40:
+        decision = "BUY"
+    elif buy_score >= 60 and risk_score <= 70:
+        decision = "REVIEW"
     else:
-
         decision = "DON'T BUY"
 
     return {

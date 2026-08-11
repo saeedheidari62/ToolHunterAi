@@ -136,9 +136,9 @@ def analyze_image(image_file):
         []
     )
 
-    reasons.extend(
-        quality_reasons
-    )
+    for reason in quality_reasons:
+        if reason not in reasons:
+            reasons.append(reason)
 
     image_risk = max(
         validation_risk,

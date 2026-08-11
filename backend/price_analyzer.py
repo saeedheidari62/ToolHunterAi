@@ -60,9 +60,6 @@ def analyze_price(tool_data, asking_price):
         score = 80
         status = "VERY_GOOD_PRICE"
 
-        reasons.append(
-            "Price is significantly below the normal market range."
-        )
 
         reasons.append(
             "The unusually low price should be verified carefully."
