@@ -123,19 +123,22 @@ def make_decision(ad_data):
     )
 
     # Price contribution to Buy Score
-    price_adjustment = (
-        price_score - 50
-    ) * 0.15
+    price_adjustment = max(-10, min(7, (price_score - 50) * 0.15))
 
     buy_score += price_adjustment
 
     # Extra risk for suspiciously low prices
-    if price_status == "VERY_GOOD_PRICE":
+    if price_difference_percent is not None:
 
-        if (
-            price_difference_percent is not None
-            and price_difference_percent <= -10
-        ):
+        if price_difference_percent <= -20:
+
+            risk_score += 20
+
+            reasons.append(
+                "Price is significantly below market and requires verification."
+            )
+
+        elif price_difference_percent <= -10:
 
             risk_score += 10
 
