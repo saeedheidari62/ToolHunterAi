@@ -3,6 +3,7 @@ from pathlib import Path
 
 from description_analyzer import analyze_description
 from price_analyzer import analyze_price
+from image_analyzer import analyze_image
 
 
 def load_tool(tool_name):
@@ -75,6 +76,25 @@ def make_decision(ad_data):
         ]
     )
 
+    # Image analysis
+    image_file = ad_data.get(
+        "image_file"
+    )
+
+    image_result = analyze_image(
+        image_file
+    )
+
+    risk_score += image_result[
+        "image_risk"
+    ]
+
+    reasons.extend(
+        image_result[
+            "image_reasons"
+        ]
+    )
+
     # Price Engine v2
     asking_price = ad_data.get(
         "asking_price",
@@ -104,8 +124,9 @@ def make_decision(ad_data):
 
     # Price contribution to Buy Score
     price_adjustment = (
-    price_score - 50
-) * 0.15
+        price_score - 50
+    ) * 0.15
+
     buy_score += price_adjustment
 
     # Extra risk for suspiciously low prices

@@ -37,9 +37,19 @@ class RankEngine:
         for ad in results:
             ad["final_score"] = self.calculate_final_score(ad)
 
+        decision_priority = {
+            "BUY": 3,
+            "REVIEW": 2,
+            "DON'T BUY": 1
+        }
+
         ranked = sorted(
             results,
             key=lambda x: (
+                decision_priority.get(
+                    x.get("decision", "REVIEW"),
+                    1
+                ),
                 x.get("final_score", 0),
                 x.get("buy_score", 0),
                 -x.get("risk_score", 100)

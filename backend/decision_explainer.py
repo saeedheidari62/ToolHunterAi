@@ -275,12 +275,37 @@ class DecisionExplainer:
             first = comparison[0]
             second = comparison[1]
 
+            decision_priority = {
+                "BUY": 3,
+                "REVIEW": 2,
+                "DON'T BUY": 1
+            }
+
+            first_decision = decision_priority.get(
+                ranking[0].get("decision", "REVIEW"),
+                1
+            )
+
+            second_decision = decision_priority.get(
+                ranking[1].get("decision", "REVIEW"),
+                1
+            )
+
             difference = (
                 first["final_score"]
                 - second["final_score"]
             )
 
-            if difference > 0:
+            if first_decision > second_decision:
+
+                ranking_reason = (
+                    f"This listing ranked first because its decision "
+                    f"priority was higher ({ranking[0].get('decision')}) "
+                    f"than the second-ranked listing "
+                    f"({ranking[1].get('decision')})."
+                )
+
+            elif difference > 0:
 
                 ranking_reason = (
                     f"This listing ranked first with a "
@@ -292,6 +317,13 @@ class DecisionExplainer:
                 ranking_reason = (
                     "This listing tied on final score and was "
                     "selected using ranking tie-breakers."
+                )
+
+            else:
+
+                ranking_reason = (
+                    "This listing ranked first based on the "
+                    "overall ranking criteria."
                 )
 
         # -------------------------

@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -75,7 +76,8 @@ def analyze_single_ad(ad):
         "has_warranty": collected_ad["has_warranty"],
         "description": collected_ad["description"],
         "ad_score": ad_analysis["ad_score"],
-        "analysis": ad_analysis["analysis"]
+        "analysis": ad_analysis["analysis"],
+        "image_file": ad.get("image_file"),
     }
 
     result = make_decision(decision_data)
@@ -107,7 +109,20 @@ def health():
 @app.route("/analyze", methods=["POST"])
 def analyze():
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+
+    if data is None and request.form.get("ad"):
+        try:
+            data = {"ads": [json.loads(request.form.get("ad"))]}
+        except (json.JSONDecodeError, TypeError):
+            return jsonify({
+                "error": "Invalid advertisement JSON."
+            }), 400
+
+        image_file = request.files.get("image")
+
+        if image_file:
+            data["ads"][0]["image_file"] = image_file
 
     if not data:
         return jsonify({

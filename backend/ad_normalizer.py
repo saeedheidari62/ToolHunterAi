@@ -40,6 +40,10 @@ class AdNormalizer:
             raw_ad.get("condition", "Used")
         )
 
+        image_file = raw_ad.get(
+            "image_file"
+        )
+
         if not title:
             errors.append(
                 "Title is required."
@@ -75,7 +79,8 @@ class AdNormalizer:
                 "seller_type": seller_type,
                 "testing": testing,
                 "warranty": warranty,
-                "condition": condition
+                "condition": condition,
+                "image_file": image_file
             }
         }
 
