@@ -11,26 +11,28 @@ CONTRAST_MIN = 20
 
 SHARPNESS_LOW = 80
 
+UNIFORM_CONTRAST = 5
+
 
 def analyze_image_quality(image_file):
+
     reasons = []
     risk_score = 0
+    quality_score = 100
 
     try:
         with Image.open(image_file) as image:
+
             image = image.convert("RGB")
 
             width, height = image.size
 
             gray = image.convert("L")
 
-            brightness = ImageStat.Stat(
-                gray
-            ).mean[0]
+            stats = ImageStat.Stat(gray)
 
-            contrast = ImageStat.Stat(
-                gray
-            ).stddev[0]
+            brightness = stats.mean[0]
+            contrast = stats.stddev[0]
 
             laplacian = gray.filter(
                 ImageFilter.Kernel(
@@ -48,6 +50,7 @@ def analyze_image_quality(image_file):
             ).var[0]
 
     except Exception:
+
         return {
             "quality_score": 0,
             "quality_risk": 30,
@@ -56,23 +59,25 @@ def analyze_image_quality(image_file):
             ]
         }
 
-    quality_score = 100
-
     # Resolution
     if width < MIN_WIDTH or height < MIN_HEIGHT:
+
         quality_score -= 20
         risk_score += 10
 
         reasons.append(
             "Image resolution is low."
         )
+
     else:
+
         reasons.append(
             "Image resolution is acceptable."
         )
 
     # Brightness
     if brightness < BRIGHTNESS_LOW:
+
         quality_score -= 15
         risk_score += 8
 
@@ -81,6 +86,7 @@ def analyze_image_quality(image_file):
         )
 
     elif brightness > BRIGHTNESS_HIGH:
+
         quality_score -= 15
         risk_score += 8
 
@@ -89,32 +95,48 @@ def analyze_image_quality(image_file):
         )
 
     else:
+
         reasons.append(
             "Image brightness is acceptable."
         )
 
-    # Contrast
-    if contrast < CONTRAST_MIN:
+    # Contrast / uniform image detection
+    if contrast < UNIFORM_CONTRAST:
+
+        quality_score -= 25
+        risk_score += 15
+
+        reasons.append(
+            "Image has very low visual variation."
+        )
+
+    elif contrast < CONTRAST_MIN:
+
         quality_score -= 10
         risk_score += 5
 
         reasons.append(
             "Image contrast is low."
         )
+
     else:
+
         reasons.append(
             "Image contrast is acceptable."
         )
 
     # Sharpness
     if sharpness < SHARPNESS_LOW:
+
         quality_score -= 20
         risk_score += 10
 
         reasons.append(
             "Image may be blurry."
         )
+
     else:
+
         reasons.append(
             "Image sharpness is acceptable."
         )
