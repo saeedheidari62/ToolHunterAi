@@ -94,6 +94,7 @@ def analyze_single_ad(ad):
         "ad_score": ad_analysis["ad_score"],
         "analysis": ad_analysis["analysis"],
         "image_file": ad.get("image_file"),
+        "image_urls": ad.get("image_urls", []),
     }
 
     result = make_decision(decision_data)

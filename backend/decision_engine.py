@@ -4,6 +4,7 @@ from pathlib import Path
 from description_analyzer import analyze_description
 from price_analyzer import analyze_price
 from image_analyzer import analyze_image
+from image_downloader import ImageDownloader
 
 
 def load_tool(tool_name):
@@ -26,6 +27,8 @@ def load_tool(tool_name):
 
 
 def make_decision(ad_data):
+
+    image_downloader = ImageDownloader()
 
     tool_name = ad_data["tool_name"]
     tool = load_tool(tool_name)
@@ -77,23 +80,54 @@ def make_decision(ad_data):
     )
 
     # Image analysis
-    image_file = ad_data.get(
-        "image_file"
+    image_urls = ad_data.get(
+        "image_urls",
+        []
     )
 
-    image_result = analyze_image(
-        image_file
+    image_files = image_downloader.download(
+        image_urls
     )
 
-    risk_score += image_result[
-        "image_risk"
-    ]
-
-    reasons.extend(
-        image_result[
-            "image_reasons"
+    if image_files:
+        image_results = [
+            analyze_image(image_file)
+            for image_file in image_files
         ]
-    )
+
+        image_risk = max(
+            result.get("image_risk", 0)
+            for result in image_results
+        )
+
+        risk_score += image_risk
+
+        for result in image_results:
+            reasons.extend(
+                result.get(
+                    "image_reasons",
+                    []
+                )
+            )
+
+    else:
+        image_file = ad_data.get(
+            "image_file"
+        )
+
+        image_result = analyze_image(
+            image_file
+        )
+
+        risk_score += image_result[
+            "image_risk"
+        ]
+
+        reasons.extend(
+            image_result[
+                "image_reasons"
+            ]
+        )
 
     # Price Engine v2
     asking_price = ad_data.get(

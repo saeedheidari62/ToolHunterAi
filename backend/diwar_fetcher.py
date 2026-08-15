@@ -7,7 +7,6 @@ from bs4 import BeautifulSoup
 class DiwarFetcher:
 
     def fetch(self, url):
-
         html = requests.get(
             url,
             timeout=15
@@ -27,6 +26,8 @@ class DiwarFetcher:
         )
 
         description = self._extract_description(soup)
+
+        image_urls = self._extract_image_urls(html)
 
         return {
             "url": url,
@@ -60,7 +61,8 @@ class DiwarFetcher:
             "image_count": state.get(
                 "image_count",
                 0
-            )
+            ),
+            "image_urls": image_urls
         }
 
     def _extract_state(self, html):
@@ -100,6 +102,25 @@ class DiwarFetcher:
                 result[key] = value
 
         return result
+
+    def _extract_image_urls(self, html):
+
+        urls = re.findall(
+            r'https?[^"\\ ]+',
+            html
+        )
+
+        image_urls = []
+
+        for url in urls:
+
+            if "/static/photo/neda/webp_post/" not in url:
+                continue
+
+            if url not in image_urls:
+                image_urls.append(url)
+
+        return image_urls
 
     def _extract_description(self, soup):
 

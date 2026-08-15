@@ -61,7 +61,10 @@ class DiwarCollector:
             "warranty": warranty,
             "condition": condition,
               "image_count": raw_ad.get("image_count", 0),
-              "brand_model": self.clean_text(raw_ad.get("brand_model", "")),
+              "image_urls": raw_ad.get("image_urls", []),
+              "brand_model": self.clean_text(
+                  raw_ad.get("brand_model", "")
+              ),
             "image_file": image_file
         }
 

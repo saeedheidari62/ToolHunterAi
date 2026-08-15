@@ -44,6 +44,14 @@ class AdNormalizer:
             "image_file"
         )
 
+        image_urls = raw_ad.get(
+            "image_urls",
+            []
+        )
+
+        if not isinstance(image_urls, list):
+            image_urls = []
+
         if not title:
             errors.append(
                 "Title is required."
@@ -80,7 +88,8 @@ class AdNormalizer:
                 "testing": testing,
                 "warranty": warranty,
                 "condition": condition,
-                "image_file": image_file
+                "image_file": image_file,
+                "image_urls": image_urls
             }
         }
 
