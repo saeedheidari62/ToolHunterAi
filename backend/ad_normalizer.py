@@ -143,7 +143,8 @@ class AdNormalizer:
             "dealer",
             "کسب‌وکار",
             "فروشگاه",
-            "شرکتی"
+            "شرکتی",
+            "premium-panel",
         ]
 
         if text in personal_values:

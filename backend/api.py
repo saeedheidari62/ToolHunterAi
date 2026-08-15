@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from flask import Flask, jsonify, request
 
 from collector import AdCollector
+from diwar_collector import DiwarCollector
 from decision_engine import make_decision
 from ad_analyzer import analyze_ad
 from tool_matcher import ToolMatcher
@@ -20,10 +21,12 @@ from ad_normalizer import AdNormalizer
 app = Flask(__name__)
 
 collector = AdCollector()
+diwar_collector = DiwarCollector()
 matcher = ToolMatcher()
 ranker = RankEngine()
 explainer = DecisionExplainer()
 normalizer = AdNormalizer()
+
 
 def create_analysis_id():
     return str(uuid.uuid4())
@@ -33,7 +36,18 @@ def create_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def prepare_ad(ad):
+    if not isinstance(ad, dict):
+        return ad
+
+    if "url" in ad:
+        return diwar_collector.collect(ad)
+
+    return ad
+
+
 def analyze_single_ad(ad):
+    ad = prepare_ad(ad)
 
     normalized = normalizer.normalize(ad)
 
@@ -59,6 +73,8 @@ def analyze_single_ad(ad):
         collected_ad["title"]
         + " "
         + collected_ad["description"]
+        + " "
+        + collected_ad.get("brand_model", "")
     )
 
     if not tool_id:
@@ -86,43 +102,23 @@ def analyze_single_ad(ad):
     result["has_warranty"] = collected_ad["has_warranty"]
 
     result["price_status"] = result.get(
-        "price_status",
-        "unknown"
+        "price_status"
     )
 
+    result["price_difference_percent"] = result.get(
+        "price_difference_percent"
+    )
+
+    result["ad_score"] = ad_analysis["ad_score"]
     result["tool"] = tool_id
     result["title"] = collected_ad["title"]
 
     return result
 
 
-@app.route("/health", methods=["GET"])
-def health():
-
-    return jsonify({
-        "status": "ok",
-        "service": "ToolHunterAI API",
-        "version": "2.0"
-    })
-
-
 @app.route("/analyze", methods=["POST"])
 def analyze():
-
     data = request.get_json(silent=True)
-
-    if data is None and request.form.get("ad"):
-        try:
-            data = {"ads": [json.loads(request.form.get("ad"))]}
-        except (json.JSONDecodeError, TypeError):
-            return jsonify({
-                "error": "Invalid advertisement JSON."
-            }), 400
-
-        image_file = request.files.get("image")
-
-        if image_file:
-            data["ads"][0]["image_file"] = image_file
 
     if not data:
         return jsonify({
@@ -154,18 +150,14 @@ def analyze():
         result = analyze_single_ad(ad)
 
         if "error" in result:
-
             errors.append({
                 "index": index,
                 "error": result
             })
-
         else:
-
             results.append(result)
 
     if not results:
-
         return jsonify({
             "error": "No valid ads could be analyzed.",
             "errors": errors
@@ -183,6 +175,7 @@ def analyze():
 
     analysis_record = {
         "analysis_id": analysis_id,
+
         "created_at": created_at,
         "service": "ToolHunterAI API",
         "version": "2.0",
@@ -226,7 +219,6 @@ def history_detail(analysis_id):
     record = get_history_by_id(analysis_id)
 
     if record is None:
-
         return jsonify({
             "error": "Analysis not found.",
             "analysis_id": analysis_id
@@ -239,7 +231,6 @@ def history_detail(analysis_id):
 
 
 if __name__ == "__main__":
-
     app.run(
         host="0.0.0.0",
         port=5000,

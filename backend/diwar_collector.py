@@ -33,9 +33,12 @@ class DiwarCollector:
             raw_ad.get("seller_type", "unknown")
         )
 
-        testing = self.clean_bool(
-            raw_ad.get("testing", False)
-        )
+        testing_value = raw_ad.get("testing", None)
+
+        if testing_value is None:
+            testing = self.detect_testing(title, description)
+        else:
+            testing = self.clean_bool(testing_value)
 
         warranty = self.clean_bool(
             raw_ad.get("warranty", False)
@@ -57,6 +60,8 @@ class DiwarCollector:
             "testing": testing,
             "warranty": warranty,
             "condition": condition,
+              "image_count": raw_ad.get("image_count", 0),
+              "brand_model": self.clean_text(raw_ad.get("brand_model", "")),
             "image_file": image_file
         }
 
@@ -152,6 +157,29 @@ class DiwarCollector:
                 return False
 
         return False
+    def detect_testing(self, title="", description=""):
+        text = f"{title} {description}".strip().lower()
+
+        negative = (
+            "بدون تست",
+            "تست ندارد",
+            "امکان تست ندارد",
+            "فاقد تست"
+        )
+
+        positive = (
+            "امکان تست",
+            "تست حضوری",
+            "مهلت تست",
+            "با تست",
+            "تست دارد"
+        )
+
+        if any(item in text for item in negative):
+            return False
+
+        return any(item in text for item in positive)
+
 
     def clean_seller_type(
         self,
@@ -171,6 +199,7 @@ class DiwarCollector:
             "shop": "business",
             "store": "business",
             "فروشگاه": "business",
+            "premium-panel": "business",
             "شرکتی": "business"
         }
 
@@ -193,6 +222,7 @@ class DiwarCollector:
             "دست دوم": "used",
             "کارکرده": "used",
             "new": "new",
+              "like-new": "used",
             "نو": "new"
         }
 
