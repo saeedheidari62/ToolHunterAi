@@ -7,39 +7,129 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>نتیجه تحلیل</title>
+<title>نتیجه تحلیل ToolHunterAI</title>
 
 <style>
 
+*{
+    box-sizing:border-box;
+}
+
 body{
-    font-family:Arial;
+    font-family:Arial,Tahoma,sans-serif;
     background:#f2f2f2;
     margin:0;
-    padding:20px;
+    padding:15px;
+    color:#222;
 }
 
 .container{
-    max-width:700px;
+    max-width:720px;
     margin:auto;
     background:white;
-    padding:25px;
-    border-radius:15px;
-    box-shadow:0 0 10px rgba(0,0,0,.15);
+    padding:20px;
+    border-radius:16px;
+    box-shadow:0 3px 15px rgba(0,0,0,.12);
 }
 
 h1{
     text-align:center;
+    font-size:24px;
+}
+
+.title{
+    text-align:center;
+    color:#555;
+    line-height:1.8;
+    margin-bottom:20px;
+}
+
+.decision{
+    text-align:center;
+    padding:20px;
+    border-radius:14px;
+    margin-bottom:18px;
+}
+
+.decision h2{
+    margin:0 0 8px 0;
+    font-size:28px;
+}
+
+.decision p{
+    margin:0;
+    line-height:1.8;
+}
+
+.buy{
+    background:#eef9f1;
+    border:2px solid #198754;
+}
+
+.review{
+    background:#fff8e5;
+    border:2px solid #e0a800;
+}
+
+.dont-buy{
+    background:#fff0f0;
+    border:2px solid #dc3545;
+}
+
+.scores{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
 }
 
 .score{
     background:#f7f7f7;
-    padding:12px;
-    border-radius:8px;
-    margin-top:10px;
+    padding:15px 8px;
+    border-radius:10px;
+    text-align:center;
+}
+
+.score strong{
+    display:block;
+    margin-bottom:8px;
+    font-size:14px;
+}
+
+.number{
+    font-size:26px;
+    font-weight:bold;
+}
+
+.section{
+    margin-top:22px;
+}
+
+.section h3{
+    margin-bottom:10px;
+}
+
+.info{
+    background:#f7f7f7;
+    padding:14px;
+    border-radius:10px;
+    line-height:2;
+}
+
+.warning{
+    background:#fff4d6;
+    border-right:5px solid #e0a800;
+    padding:15px;
+    border-radius:10px;
+    line-height:2;
 }
 
 ul{
-    line-height:1.8;
+    padding-right:22px;
+    line-height:2;
+}
+
+li{
+    margin-bottom:5px;
 }
 
 .button{
@@ -50,7 +140,23 @@ ul{
     color:white;
     padding:15px;
     border-radius:10px;
-    margin-top:20px;
+    margin-top:25px;
+}
+
+@media(max-width:600px){
+
+    body{
+        padding:8px;
+    }
+
+    .container{
+        padding:15px;
+    }
+
+    .scores{
+        grid-template-columns:1fr;
+    }
+
 }
 
 </style>
@@ -63,82 +169,354 @@ ul{
 
 <h1>نتیجه تحلیل ToolHunterAI</h1>
 
-<h2>
-{% if result.decision == "BUY" %}
-خرید
-{% elif result.decision == "REVIEW" %}
-نیاز به بررسی
-{% elif result.decision == "DON'T BUY" %}
-عدم خرید
+<div class="title">
+
+{% if result.title %}
+{{ result.title }}
 {% else %}
-{{ result.decision }}
+تحلیل آگهی
 {% endif %}
-</h2>
+
+</div>
+
+
+{% if result.decision == "BUY" %}
+
+<div class="decision buy">
+
+<h2>پیشنهاد خرید</h2>
+
+<p>
+این آگهی بر اساس اطلاعات موجود شرایط مناسبی برای خرید دارد.
+</p>
+
+</div>
+
+{% elif result.decision == "REVIEW" %}
+
+<div class="decision review">
+
+<h2>نیاز به بررسی</h2>
+
+<p>
+قبل از خرید، موارد مهم این آگهی باید بررسی و تأیید شوند.
+</p>
+
+</div>
+
+{% elif result.decision == "DON'T BUY" %}
+
+<div class="decision dont-buy">
+
+<h2>پیشنهاد عدم خرید</h2>
+
+<p>
+ریسک این معامله در شرایط فعلی بالاست.
+</p>
+
+</div>
+
+{% else %}
+
+<div class="decision">
+
+<h2>{{ result.decision }}</h2>
+
+</div>
+
+{% endif %}
+
+
+<div class="scores">
 
 <div class="score">
-<strong>امتیاز خرید:</strong>
+
+<strong>امتیاز خرید</strong>
+
+<div class="number">
 {{ result.buy_score }}
 </div>
 
+از 100
+
+</div>
+
+
 <div class="score">
-<strong>امتیاز ریسک:</strong>
+
+<strong>امتیاز ریسک</strong>
+
+<div class="number">
 {{ result.risk_score }}
 </div>
 
+از 100
+
+</div>
+
+
 <div class="score">
-<strong>امتیاز آگهی:</strong>
+
+<strong>امتیاز آگهی</strong>
+
+<div class="number">
 {{ result.ad_score }}
 </div>
 
-<h3>دلایل تصمیم</h3>
+از 100
+
+</div>
+
+</div>
+
+
+<div class="section">
+
+<h3>وضعیت قیمت</h3>
+
+<div class="info">
+
+{% if result.price_status == "SUSPICIOUS_PRICE" %}
+
+<strong>قیمت مشکوک</strong>
+
+<br>
+
+قیمت درج‌شده ممکن است نمادین باشد و قیمت واقعی فروش نباشد.
+
+{% elif result.price_status == "VERY_GOOD_PRICE" %}
+
+<strong>قیمت بسیار مناسب</strong>
+
+<br>
+
+قیمت نسبت به محدوده بازار پایین است.
+
+{% elif result.price_status == "GOOD_PRICE" %}
+
+<strong>قیمت مناسب</strong>
+
+<br>
+
+قیمت پایین‌تر از میانگین بازار است.
+
+{% elif result.price_status == "FAIR_PRICE" %}
+
+<strong>قیمت متعارف</strong>
+
+<br>
+
+قیمت در محدوده طبیعی بازار قرار دارد.
+
+{% elif result.price_status == "HIGH_PRICE" %}
+
+<strong>قیمت بالا</strong>
+
+<br>
+
+قیمت بالاتر از محدوده معمول بازار است.
+
+{% elif result.price_status == "VERY_HIGH_PRICE" %}
+
+<strong>قیمت بسیار بالا</strong>
+
+<br>
+
+قیمت به
+
+شکل قابل توجهی بالاتر از بازار است.
+
+{% else %}
+
+وضعیت قیمت مشخص نیست.
+
+{% endif %}
+
+</div>
+
+</div>
+
+
+{% if result.price_status == "SUSPICIOUS_PRICE" %}
+
+<div class="section">
+
+<div class="warning">
+
+<strong>هشدار قیمت</strong>
+
+<br>
+
+قبل از هر تصمیمی، قیمت واقعی فروش را از فروشنده استعلام کنید.
+
+<br>
+
+پرداخت بر اساس قیمت درج‌شده آگهی توصیه نمی‌شود.
+
+</div>
+
+</div>
+
+{% endif %}
+
+
+<div class="section">
+
+<h3>وضعیت معامله</h3>
+
+<div class="info">
+
+<strong>تست:</strong>
+
+{% if result.has_test %}
+امکان تست وجود دارد.
+{% else %}
+امکان تست اعلام نشده است.
+{% endif %}
+
+<br>
+
+<strong>گارانتی:</strong>
+
+{% if result.has_warranty %}
+گارانتی اعلام شده است.
+{% else %}
+گارانتی اعلام نشده است.
+{% endif %}
+
+</div>
+
+</div>
+
+
+<div class="section">
+
+<h3>دلایل تحلیل</h3>
 
 <ul>
 
 {% for reason in result.reasons %}
+
 <li>
+
 {% if reason == "Testing available." %}
+
 تست آگهی در دسترس است.
+
+{% elif reason == "No testing available." %}
+
+امکان تست اعلام نشده است.
+
 {% elif reason == "No warranty." %}
-آگهی فاقد گارانتی است.
-{% elif reason == "Business seller." %}
-فروشنده تجاری است.
-{% elif reason == "Used tool." %}
-ابزار کارکرده است.
-{% elif reason == "No image provided." %}
-تصویری برای آگهی ارائه نشده است.
-{% elif reason == "Price is significantly higher than the market range." %}
-قیمت به‌طور قابل توجهی بالاتر از محدوده بازار است.
+
+گارانتی اعلام نشده است.
+
 {% elif reason == "Seller allows testing." %}
+
 فروشنده امکان تست را فراهم می‌کند.
-{% elif "Positive description:" in reason %}
-توضیحات مثبت: {{ reason.replace("Positive description: ", "") }}
-{% elif "Valid image provided." == reason %}
-تصویر معتبر ارائه شده است.
-{% elif "Image format:" in reason %}
-فرمت تصویر: {{ reason.replace("Image format: ", "") }}
-{% elif "Image resolution:" in reason %}
-رزولوشن تصویر: {{ reason.replace("Image resolution: ", "") }}
-{% elif reason == "Image resolution is acceptable." %}
-رزولوشن تصویر قابل قبول است.
-{% elif reason == "Image brightness is acceptable." %}
-روشنایی تصویر قابل قبول است.
-{% elif reason == "Image contrast is acceptable." %}
-کنتراست تصویر قابل قبول است.
-{% elif reason == "Image sharpness is acceptable." %}
-وضوح تصویر قابل قبول است.
+
+{% elif reason == "Seller provides warranty." %}
+
+فروشنده گارانتی ارائه می‌دهد.
+
+{% elif reason == "Business seller." %}
+
+فروشنده تجاری است.
+
+{% elif reason == "Personal seller." %}
+
+فروشنده شخصی است.
+
+{% elif reason == "Used tool." %}
+
+ابزار کارکرده است.
+
+{% elif reason == "New tool." %}
+
+ابزار نو اعلام شده است.
+
+{% elif reason == "No image provided." %}
+
+تصویری برای آگهی ارائه نشده است.
+
 {% elif reason == "Image may be blurry." %}
+
 تصویر ممکن است تار باشد.
+
+{% elif reason == "Image resolution is acceptable." %}
+
+رزولوشن تصویر قابل قبول است.
+
+{% elif reason == "Image brightness is acceptable." %}
+
+روشنایی تصویر قابل قبول است.
+
+{% elif reason == "Image contrast is acceptable." %}
+
+کنتراست تصویر قابل قبول است.
+
+{% elif reason == "Image sharpness is acceptable." %}
+
+وضوح تصویر قابل قبول است.
+
+{% elif "Positive description:" in reason %}
+
+نکته مثبت توضیحات: {{ reason }}
+
+{% elif "Price availability signal:" in reason %}
+
+نشانه قیمت غیرقطعی: {{ reason }}
+
+{% elif "The listed price may be symbolic" in reason %}
+
+قیمت درج‌شده ممکن است نمادین یا غیرواقعی باشد.
+
+{% elif "The seller asks the buyer to contact" in reason %}
+
+فروشنده برای قیمت واقعی درخواست تماس کرده است.
+
+{% elif "The unusually low price" in reason %}
+
+قیمت به شکل غیرعادی پایین است و باید بررسی شود.
+
+{% elif reason == "Price is below the market average." %}
+
+قیمت پایین‌تر از میانگین بازار است.
+
+{% elif reason == "Price is at the low end of the market range." %}
+
+قیمت در پایین محدوده بازار قرار دارد.
+
+{% elif reason == "Price is within the normal market range." %}
+
+قیمت در محدوده طبیعی بازار قرار دارد.
+
+{% elif reason == "Price is above the normal market range." %}
+
+قیمت بالاتر از محدوده طبیعی بازار است.
+
+{% elif reason == "Price is significantly higher than the market range." %}
+
+قیمت به‌طور قابل توجهی بالاتر از محدوده بازار است.
+
 {% else %}
+
 {{ reason }}
+
 {% endif %}
+
 </li>
+
 {% endfor %}
 
 </ul>
 
+</div>
+
+
 <a class="button" href="/">
 
-بازگشت
+بازگشت به تحلیل
 
 </a>
 

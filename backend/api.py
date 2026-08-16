@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request
 
 from .collector import AdCollector
 from .diwar_collector import DiwarCollector
+from .diwar_fetcher import DiwarFetcher
 from .decision_engine import make_decision
 from .ad_analyzer import analyze_ad
 from .tool_matcher import ToolMatcher
@@ -22,6 +23,7 @@ app = Flask(__name__)
 
 collector = AdCollector()
 diwar_collector = DiwarCollector()
+diwar_fetcher = DiwarFetcher()
 matcher = ToolMatcher()
 ranker = RankEngine()
 explainer = DecisionExplainer()
@@ -41,7 +43,10 @@ def prepare_ad(ad):
         return ad
 
     if "url" in ad:
-        return diwar_collector.collect(ad)
+        fetched_ad = diwar_fetcher.fetch(ad["url"])
+        if not fetched_ad:
+            return None
+        return diwar_collector.collect(fetched_ad)
 
     return ad
 

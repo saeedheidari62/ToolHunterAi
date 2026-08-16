@@ -21,7 +21,6 @@ class ToolMatcher:
 
         self.tools = data["tools"]
 
-
     def normalize(self, text):
 
         text = text.lower()
@@ -39,11 +38,9 @@ class ToolMatcher:
 
         return text.strip()
 
-
     def match(self, text):
 
         text = self.normalize(text)
-
 
         for tool in self.tools:
 
@@ -53,21 +50,23 @@ class ToolMatcher:
                 tool.get("name", "")
             )
 
-            candidates.append(
-                tool.get("brand", "")
-            )
-
             candidates.extend(
                 tool.get("aliases", [])
             )
-
 
             for candidate in candidates:
 
                 candidate = self.normalize(candidate)
 
-                if candidate and candidate in text:
-                    return tool["id"]
+                if not candidate:
+                    continue
 
+                # Generic aliases without a model/code
+                # are not strong enough for identification.
+                if not re.search(r"\d", candidate):
+                    continue
+
+                if candidate in text:
+                    return tool["id"]
 
         return None

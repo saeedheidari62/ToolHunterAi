@@ -2,126 +2,83 @@ import re
 
 
 class DiwarCollector:
-    """
-    Normalize raw advertisement data from Divar
-    into the standard ToolHunterAI advertisement format.
-    """
-
-    def __init__(self):
-        pass
 
     def collect(self, raw_ad):
         if not isinstance(raw_ad, dict):
             return None
 
-        title = self.clean_text(
-            raw_ad.get("title")
-        )
-
-        description = self.clean_text(
-            raw_ad.get("description", "")
-        )
+        title = self.clean_text(raw_ad.get("title"))
+        description = self.clean_text(raw_ad.get("description", ""))
 
         if not title:
             return None
 
-        price = self.clean_price(
-            raw_ad.get("price", 0)
-        )
-
-        seller_type = self.clean_seller_type(
-            raw_ad.get("seller_type", "unknown")
-        )
-
-        testing_value = raw_ad.get("testing", None)
-
-        if testing_value is None:
-            testing = self.detect_testing(title, description)
-        else:
-            testing = self.clean_bool(testing_value)
-
-        warranty = self.clean_bool(
-            raw_ad.get("warranty", False)
-        )
-
-        condition = self.clean_condition(
-            raw_ad.get("condition", "used")
-        )
-
-        image_file = raw_ad.get(
-            "image_file"
-        )
-
         return {
             "title": title,
             "description": description,
-            "price": price,
-            "seller_type": seller_type,
-            "testing": testing,
-            "warranty": warranty,
-            "condition": condition,
-              "image_count": raw_ad.get("image_count", 0),
-              "image_urls": raw_ad.get("image_urls", []),
-              "brand_model": self.clean_text(
-                  raw_ad.get("brand_model", "")
-              ),
-            "image_file": image_file
+            "price": self.clean_price(raw_ad.get("price", 0)),
+            "seller_type": self.clean_seller_type(
+                raw_ad.get("seller_type", "unknown")
+            ),
+            "testing": self.get_testing(raw_ad, title, description),
+            "warranty": self.clean_bool(raw_ad.get("warranty", False)),
+            "condition": self.clean_condition(
+                raw_ad.get("condition", "used")
+            ),
+            "image_count": raw_ad.get("image_count", 0),
+            "image_urls": raw_ad.get("image_urls", []),
+            "brand_model": self.clean_text(
+                raw_ad.get("brand_model", "")
+            ),
+            "image_file": raw_ad.get("image_file")
         }
 
-    def collect_many(self, raw_ads):
-        collected = []
+    def get_testing(self, raw_ad, title, description):
+        if "testing" in raw_ad and raw_ad["testing"] is not None:
+            return self.clean_bool(raw_ad["testing"])
 
-        if not isinstance(raw_ads, list):
-            return collected
+        text = f"{title} {description}".lower()
 
-        for raw_ad in raw_ads:
-            ad = self.collect(raw_ad)
+        negative = [
+            "بدون تست",
+            "تست ندارد",
+            "امکان تست ندارد",
+            "فاقد تست"
+        ]
 
-            if ad is not None:
-                collected.append(ad)
+        positive = [
+            "امکان تست",
+            "تست حضوری",
+            "مهلت تست",
+            "با تست",
+            "تست دارد"
+        ]
 
-        return collected
+        if any(x in text for x in negative):
+            return False
+
+        return any(x in text for x in positive)
 
     def clean_text(self, value):
         if value is None:
             return ""
 
-        return " ".join(
-            str(value).split()
-        )
+        return " ".join(str(value).split())
 
     def clean_price(self, value):
         if isinstance(value, bool):
             return 0
 
         try:
-            text = (
-                str(value)
-                .replace(",", "")
-                .replace(" ", "")
-                .strip()
-            )
+            text = str(value).replace(",", "").replace(" ", "")
+            nums = re.findall(r"\d+", text)
 
-            if not text:
+            if not nums:
                 return 0
 
-            numbers = re.findall(
-                r"\d+",
-                text
-            )
+            return int("".join(nums))
 
-            if not numbers:
-                return 0
-
-            return max(
-                0,
-                int("".join(numbers))
-            )
-
-        except (
-            ValueError,
-            TypeError
-        ):
+        except (ValueError, TypeError):
             return 0
 
     def clean_bool(self, value):
@@ -131,105 +88,57 @@ class DiwarCollector:
         if isinstance(value, (int, float)):
             return value != 0
 
-        if isinstance(value, str):
-            normalized = (
-                value.strip()
-                .lower()
-            )
+        text = str(value).strip().lower()
 
-            if normalized in (
-                "true",
-                "1",
-                "yes",
-                "y",
-                "on",
-                "بله",
-                "بلی"
-            ):
-                return True
-
-            if normalized in (
-                "false",
-                "0",
-                "no",
-                "n",
-                "off",
-                "خیر",
-                "نه"
-            ):
-                return False
-
-        return False
-    def detect_testing(self, title="", description=""):
-        text = f"{title} {description}".strip().lower()
-
-        negative = (
-            "بدون تست",
-            "تست ندارد",
-            "امکان تست ندارد",
-            "فاقد تست"
+        return text in (
+            "true",
+            "1",
+            "yes",
+            "y",
+            "on",
+            "بله",
+            "بلی"
         )
 
-        positive = (
-            "امکان تست",
-            "تست حضوری",
-            "مهلت تست",
-            "با تست",
-            "تست دارد"
-        )
+    def clean_seller_type(self, value):
+        text = str(value).strip().lower()
 
-        if any(item in text for item in negative):
-            return False
+        if text in (
+            "personal",
+            "person",
+            "individual",
+            "شخصی",
+            "فردی"
+        ):
+            return "Personal"
 
-        return any(item in text for item in positive)
+        if text in (
+            "business",
+            "company",
+            "shop",
+            "dealer",
+            "کسب‌وکار",
+            "کسب و کار",
+            "فروشگاه",
+            "شرکتی",
+            "premium-panel"
+        ):
+            return "Business"
 
+        return "Unknown"
 
-    def clean_seller_type(
-        self,
-        seller_type
-    ):
-        value = str(
-            seller_type or ""
-        ).strip().lower()
+    def clean_condition(self, value):
+        text = str(value).strip().lower()
 
-        mapping = {
-            "personal": "personal",
-            "private": "personal",
-            "individual": "personal",
-            "شخصی": "personal",
-            "business": "business",
-            "company": "business",
-            "shop": "business",
-            "store": "business",
-            "فروشگاه": "business",
-            "premium-panel": "business",
-            "شرکتی": "business"
-        }
+        if text in ("new", "نو"):
+            return "New"
 
-        return mapping.get(
-            value,
-            "unknown"
-        )
+        if text in (
+            "used",
+            "second hand",
+            "دست دوم",
+            "کارکرده"
+        ):
+            return "Used"
 
-    def clean_condition(
-        self,
-        condition
-    ):
-        value = str(
-            condition or ""
-        ).strip().lower()
-
-        mapping = {
-            "used": "used",
-            "second hand": "used",
-            "دست دوم": "used",
-            "کارکرده": "used",
-            "new": "new",
-              "like-new": "used",
-            "نو": "new"
-        }
-
-        return mapping.get(
-            value,
-            "unknown"
-        )
+        return "Used"

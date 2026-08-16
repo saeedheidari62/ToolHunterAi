@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 class DiwarFetcher:
 
     def fetch(self, url):
+
         html = requests.get(
             url,
             timeout=15
@@ -20,28 +21,59 @@ class DiwarFetcher:
         state = self._extract_state(html)
 
         title = soup.find("h1")
+
         title = (
             title.get_text(" ", strip=True)
             if title else ""
         )
 
-        description = self._extract_description(soup)
+        description = self._extract_description(
+            soup
+        )
 
-        image_urls = self._extract_image_urls(html)
+        image_urls = self._extract_image_urls(
+            html
+        )
+
+        seller_type = state.get(
+            "business_type",
+            ""
+        )
+
+        condition = state.get(
+            "status",
+            "unknown"
+        )
+
+        # -------------------------------------------------
+        # Fallback seller detection
+        # -------------------------------------------------
+
+        if not seller_type:
+
+            seller_type = self._detect_seller_type(
+                title,
+                description
+            )
+
+        # -------------------------------------------------
+        # Fallback condition
+        # -------------------------------------------------
+
+        if not condition:
+
+            condition = "unknown"
 
         return {
             "url": url,
             "title": title,
             "description": description,
-            "price": state.get("price", 0),
-            "seller_type": state.get(
-                "business_type",
-                "unknown"
+            "price": state.get(
+                "price",
+                0
             ),
-            "condition": state.get(
-                "status",
-                "unknown"
-            ),
+            "seller_type": seller_type,
+            "condition": condition,
             "brand_model": state.get(
                 "brand_model",
                 ""
@@ -65,7 +97,103 @@ class DiwarFetcher:
             "image_urls": image_urls
         }
 
-    def _extract_state(self, html):
+    def _detect_seller_type(
+        self,
+        title,
+        description
+    ):
+
+        text = (
+            (title or "")
+            + " "
+            + (description or "")
+        ).lower()
+
+        # -------------------------------------------------
+        # Strong business signals
+        # -------------------------------------------------
+
+        business_phrases = [
+            "فروشگاه",
+            "ابزارفروشی",
+            "فروش انواع",
+            "خرید حضوری",
+            "خرید غیرحضوری",
+            "ارسال به سراسر کشور",
+            "پرداخت درب منزل",
+            "جهت مشاوره",
+            "با ما تماس",
+            "تماس بگیرید",
+            "مشاوره رایگان",
+            "ضمانت",
+            "گارانتی",
+            "پلاک",
+            "پاساژ",
+            "مغازه",
+            "فروشنده",
+            "ثبت سفارش",
+            "استعلام قیمت",
+            "قیمت روز"
+        ]
+
+        business_score = 0
+
+        for phrase in business_phrases:
+
+            if phrase in text:
+
+                business_score += 1
+
+        # -------------------------------------------------
+        # Personal seller signals
+        # -------------------------------------------------
+
+        personal_phrases = [
+            "شخصی",
+            "مصرف شخصی",
+            "برای خودم",
+            "وسیله شخصی",
+            "استفاده شخصی",
+            "به دلیل نیاز مالی",
+            "به دلیل جابجایی",
+            "اسباب کشی",
+            "فروش فوری"
+        ]
+
+        personal_score = 0
+
+        for phrase in personal_phrases:
+
+            if phrase in text:
+
+                personal_score += 1
+
+        # -------------------------------------------------
+        # Decision
+        # -------------------------------------------------
+
+        if business_score >= 2:
+
+            return "business"
+
+        if personal_score >= 2:
+
+            return "personal"
+
+        if business_score == 1:
+
+            return "business"
+
+        if personal_score == 1:
+
+            return "personal"
+
+        return "unknown"
+
+    def _extract_state(
+        self,
+        html
+    ):
 
         result = {}
 
@@ -79,9 +207,11 @@ class DiwarFetcher:
             "district",
             "image_count"
         ]:
+
             pattern = (
-                r'"' + key +
-                r'"\s*:\s*'
+                r'"'
+                + key
+                + r'"\s*:\s*'
                 r'(".*?"|-?\d+)'
             )
 
@@ -91,19 +221,43 @@ class DiwarFetcher:
             )
 
             if match:
+
                 value = match.group(1)
 
                 if value.startswith('"'):
-                    value = json.loads(value)
+
+                    try:
+
+                        value = json.loads(
+                            value
+                        )
+
+                    except (
+                        json.JSONDecodeError
+                    ):
+
+                        value = value.strip(
+                            '"'
+                        )
 
                 else:
-                    value = int(value)
+
+                    try:
+
+                        value = int(value)
+
+                    except ValueError:
+
+                        continue
 
                 result[key] = value
 
         return result
 
-    def _extract_image_urls(self, html):
+    def _extract_image_urls(
+        self,
+        html
+    ):
 
         urls = re.findall(
             r'https?[^"\\ ]+',
@@ -114,15 +268,25 @@ class DiwarFetcher:
 
         for url in urls:
 
-            if "/static/photo/neda/webp_post/" not in url:
+            if (
+                "/static/photo/neda/webp_post/"
+                not in url
+            ):
+
                 continue
 
             if url not in image_urls:
-                image_urls.append(url)
+
+                image_urls.append(
+                    url
+                )
 
         return image_urls
 
-    def _extract_description(self, soup):
+    def _extract_description(
+        self,
+        soup
+    ):
 
         h = soup.find(
             "h2",
@@ -131,11 +295,21 @@ class DiwarFetcher:
         )
 
         if not h:
+
             return ""
 
-        p = h.parent.parent.parent.find_next("p")
+        p = (
+            h.parent
+            .parent
+            .parent
+            .find_next("p")
+        )
 
         return (
-            p.get_text(" ", strip=True)
-            if p else ""
+            p.get_text(
+                " ",
+                strip=True
+            )
+            if p
+            else ""
         )
