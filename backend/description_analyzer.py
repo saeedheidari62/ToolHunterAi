@@ -6,12 +6,14 @@ def analyze_description(description):
 
     positive_words = [
         "کم کار",
+        "کم‌کار",
         "تمیز",
         "سالم",
         "نو",
         "تست",
         "بدون ایراد",
-        "کارکرد کم"
+        "کارکرد کم",
+        "کارکرد کم",
     ]
 
     negative_words = [
@@ -23,7 +25,10 @@ def analyze_description(description):
         "نیاز به تعمیر",
         "فوری",
         "زود بفروش",
-        "بدون تست"
+        "بدون تست",
+        "تست ندارد",
+        "امکان تست ندارد",
+        "فاقد تست",
     ]
 
     price_request_phrases = [
@@ -38,17 +43,24 @@ def analyze_description(description):
         "با ما در تماس باشید",
         "برای قیمت تماس",
         "قیمت توافقی",
-        "قیمت در تماس"
+        "قیمت در تماس",
+        "کسب قیمت",
+        "جهت مشاوره و کسب قیمت",
+        "برای مشاوره و کسب قیمت",
     ]
 
     for word in positive_words:
         if word in text:
-            reasons.append(f"Positive description: {word}")
+            reasons.append(
+                f"Positive description: {word}"
+            )
 
     for word in negative_words:
         if word in text:
             risk_score += 10
-            reasons.append(f"Risk phrase detected: {word}")
+            reasons.append(
+                f"Risk phrase detected: {word}"
+            )
 
     price_signal = "NONE"
 
