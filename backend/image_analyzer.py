@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PIL import Image, UnidentifiedImageError
 
-from image_quality_analyzer import analyze_image_quality
+from .image_quality_analyzer import analyze_image_quality
 
 
 ALLOWED_FORMATS = {

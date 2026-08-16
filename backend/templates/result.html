@@ -63,20 +63,30 @@ ul{
 
 <h1>نتیجه تحلیل ToolHunterAI</h1>
 
-<h2>{{ result.decision }}</h2>
+<h2>
+{% if result.decision == "BUY" %}
+خرید
+{% elif result.decision == "REVIEW" %}
+نیاز به بررسی
+{% elif result.decision == "DON'T BUY" %}
+عدم خرید
+{% else %}
+{{ result.decision }}
+{% endif %}
+</h2>
 
 <div class="score">
-<strong>Buy Score:</strong>
+<strong>امتیاز خرید:</strong>
 {{ result.buy_score }}
 </div>
 
 <div class="score">
-<strong>Risk Score:</strong>
+<strong>امتیاز ریسک:</strong>
 {{ result.risk_score }}
 </div>
 
 <div class="score">
-<strong>Ad Score:</strong>
+<strong>امتیاز آگهی:</strong>
 {{ result.ad_score }}
 </div>
 
@@ -85,9 +95,43 @@ ul{
 <ul>
 
 {% for reason in result.reasons %}
-
-<li>{{ reason }}</li>
-
+<li>
+{% if reason == "Testing available." %}
+تست آگهی در دسترس است.
+{% elif reason == "No warranty." %}
+آگهی فاقد گارانتی است.
+{% elif reason == "Business seller." %}
+فروشنده تجاری است.
+{% elif reason == "Used tool." %}
+ابزار کارکرده است.
+{% elif reason == "No image provided." %}
+تصویری برای آگهی ارائه نشده است.
+{% elif reason == "Price is significantly higher than the market range." %}
+قیمت به‌طور قابل توجهی بالاتر از محدوده بازار است.
+{% elif reason == "Seller allows testing." %}
+فروشنده امکان تست را فراهم می‌کند.
+{% elif "Positive description:" in reason %}
+توضیحات مثبت: {{ reason.replace("Positive description: ", "") }}
+{% elif "Valid image provided." == reason %}
+تصویر معتبر ارائه شده است.
+{% elif "Image format:" in reason %}
+فرمت تصویر: {{ reason.replace("Image format: ", "") }}
+{% elif "Image resolution:" in reason %}
+رزولوشن تصویر: {{ reason.replace("Image resolution: ", "") }}
+{% elif reason == "Image resolution is acceptable." %}
+رزولوشن تصویر قابل قبول است.
+{% elif reason == "Image brightness is acceptable." %}
+روشنایی تصویر قابل قبول است.
+{% elif reason == "Image contrast is acceptable." %}
+کنتراست تصویر قابل قبول است.
+{% elif reason == "Image sharpness is acceptable." %}
+وضوح تصویر قابل قبول است.
+{% elif reason == "Image may be blurry." %}
+تصویر ممکن است تار باشد.
+{% else %}
+{{ reason }}
+{% endif %}
+</li>
 {% endfor %}
 
 </ul>

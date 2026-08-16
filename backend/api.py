@@ -4,19 +4,19 @@ from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
 
-from collector import AdCollector
-from diwar_collector import DiwarCollector
-from decision_engine import make_decision
-from ad_analyzer import analyze_ad
-from tool_matcher import ToolMatcher
-from rank_engine import RankEngine
-from decision_explainer import DecisionExplainer
-from history_manager import (
+from .collector import AdCollector
+from .diwar_collector import DiwarCollector
+from .decision_engine import make_decision
+from .ad_analyzer import analyze_ad
+from .tool_matcher import ToolMatcher
+from .rank_engine import RankEngine
+from .decision_explainer import DecisionExplainer
+from .history_manager import (
     save_history,
     get_history,
     get_history_by_id
 )
-from ad_normalizer import AdNormalizer
+from .ad_normalizer import AdNormalizer
 
 app = Flask(__name__)
 

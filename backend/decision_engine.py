@@ -1,14 +1,13 @@
 import json
 from pathlib import Path
 
-from description_analyzer import analyze_description
-from price_analyzer import analyze_price
-from image_analyzer import analyze_image
-from image_downloader import ImageDownloader
+from .description_analyzer import analyze_description
+from .price_analyzer import analyze_price
+from .image_analyzer import analyze_image
+from .image_downloader import ImageDownloader
 
 
 def load_tool(tool_name):
-
     base_path = Path(__file__).resolve().parent.parent
 
     file_path = (
@@ -18,11 +17,7 @@ def load_tool(tool_name):
         / f"{tool_name}.json"
     )
 
-    with open(
-        file_path,
-        "r",
-        encoding="utf-8"
-    ) as file:
+    with open(file_path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -46,50 +41,32 @@ def make_decision(ad_data):
 
     reasons = []
 
-    has_test = bool(
-        ad_data.get("has_test")
-    )
+    has_test = bool(ad_data.get("has_test"))
+    has_warranty = bool(ad_data.get("has_warranty"))
 
-    has_warranty = bool(
-        ad_data.get("has_warranty")
-    )
+    reasons.extend(ad_data.get("analysis", []))
 
-    # Ad analysis reasons
-    reasons.extend(
-        ad_data.get("analysis", [])
-    )
+    description = ad_data.get("description", "")
 
-    # Description analysis
-    description = ad_data.get(
-        "description",
-        ""
-    )
+    description_result = analyze_description(description)
 
-    description_result = analyze_description(
-        description
-    )
-
-    risk_score += description_result[
-        "description_risk"
-    ]
+    risk_score += description_result["description_risk"]
 
     reasons.extend(
-        description_result[
-            "description_reasons"
-        ]
+        description_result["description_reasons"]
     )
 
-    # Image analysis
-    image_urls = ad_data.get(
-        "image_urls",
-        []
+    price_signal = description_result.get(
+        "price_signal",
+        "NONE"
     )
 
-    image_files = image_downloader.download(
-        image_urls
-    )
+    image_urls = ad_data.get("image_urls", [])
+
+    image_files = image_downloader.download(image_urls)
 
     if image_files:
+
         image_results = [
             analyze_image(image_file)
             for image_file in image_files
@@ -104,86 +81,83 @@ def make_decision(ad_data):
 
         for result in image_results:
             reasons.extend(
-                result.get(
-                    "image_reasons",
-                    []
-                )
+                result.get("image_reasons", [])
             )
 
     else:
-        image_file = ad_data.get(
-            "image_file"
-        )
 
-        image_result = analyze_image(
-            image_file
-        )
+        image_file = ad_data.get("image_file")
 
-        risk_score += image_result[
-            "image_risk"
-        ]
+        image_result = analyze_image(image_file)
+
+        risk_score += image_result["image_risk"]
 
         reasons.extend(
-            image_result[
-                "image_reasons"
-            ]
+            image_result["image_reasons"]
         )
 
-    # Price Engine v2
-    asking_price = ad_data.get(
-        "asking_price",
-        0
-    )
+    asking_price = ad_data.get("asking_price", 0)
 
     price_result = analyze_price(
         tool,
         asking_price
     )
 
-    price_status = price_result[
-        "price_status"
-    ]
-
-    price_score = price_result[
-        "price_score"
-    ]
+    price_status = price_result["price_status"]
+    price_score = price_result["price_score"]
 
     price_difference_percent = price_result.get(
         "price_difference_percent"
     )
 
-    reasons.extend(
-        price_result["price_reason"]
-    )
+    if price_signal != "PRICE_ON_REQUEST":
 
-    # Price contribution to Buy Score
-    price_adjustment = max(-10, min(7, (price_score - 50) * 0.15))
+        reasons.extend(
+            price_result["price_reason"]
+        )
+
+    if price_signal == "PRICE_ON_REQUEST":
+
+        price_status = "SUSPICIOUS_PRICE"
+        price_score = 50
+
+        risk_score += 25
+
+        reasons.append(
+            "The listed price may be symbolic or not the actual selling price."
+        )
+
+        reasons.append(
+            "The seller asks the buyer to contact them for the current price."
+        )
+
+    price_adjustment = max(
+        -10,
+        min(
+            7,
+            (price_score - 50) * 0.15
+        )
+    )
 
     buy_score += price_adjustment
 
-    # Extra risk for suspiciously low prices
-    if price_difference_percent is not None:
+    if (
+        price_signal != "PRICE_ON_REQUEST"
+        and price_difference_percent is not None
+    ):
 
         if price_difference_percent <= -20:
-
             risk_score += 20
 
-
         elif price_difference_percent <= -10:
-
             risk_score += 10
 
-
-    # High price penalty
     if price_status == "HIGH_PRICE":
-
         risk_score += 5
 
     elif price_status == "VERY_HIGH_PRICE":
-
         risk_score += 15
 
-    # Testing
     if has_test:
 
         reasons.append(
@@ -200,7 +174,6 @@ def make_decision(ad_data):
 
         risk_score += 10
 
-    # Warranty
     if has_warranty:
 
         reasons.append(
@@ -225,14 +198,24 @@ def make_decision(ad_data):
         )
     )
 
-    # Final decision
-    if not has_test and not has_warranty:
+    if price_signal == "PRICE_ON_REQUEST":
+
+        decision ="REVIEW"
+
+    elif not has_test and not has_warranty:
+
         decision = "REVIEW"
+
     elif buy_score >= 85 and risk_score <= 40:
+
         decision = "BUY"
+
     elif buy_score >= 60 and risk_score <= 70:
+
         decision = "REVIEW"
+
     else:
+
         decision = "DON'T BUY"
 
     return {
@@ -244,8 +227,6 @@ def make_decision(ad_data):
         "has_warranty": has_warranty,
         "price_status": price_status,
         "price_score": price_score,
-        "price_difference_percent": (
-            price_difference_percent
-        ),
+        "price_difference_percent": price_difference_percent,
         "reasons": reasons
     }
