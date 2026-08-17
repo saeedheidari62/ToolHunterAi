@@ -90,7 +90,7 @@ def analyze_single_ad(ad):
         condition=ad.get("condition", "used")
     )
 
-    tool_id = matcher.match(
+    match_text = (
         collected_ad["title"]
         + " "
         + collected_ad["description"]
@@ -98,11 +98,28 @@ def analyze_single_ad(ad):
         + collected_ad.get("brand_model", "")
     )
 
-    if not tool_id:
+    tool_ids = matcher.match_all(match_text)
+
+    if not tool_ids:
         return {
             "error": "Tool not recognized.",
-            "title": collected_ad["title"]
+            "title": collected_ad["title"],
+            "matched_tools": []
         }
+
+    if len(tool_ids) > 1:
+        return {
+            "error": "Multiple tools detected.",
+            "title": collected_ad["title"],
+            "matched_tools": tool_ids,
+            "decision": "REVIEW",
+            "reason": (
+                "Multiple tools were detected in this advertisement. "
+                "The asking price cannot safely be assigned to one tool."
+            )
+        }
+
+    tool_id = tool_ids[0]
 
     ad_analysis = analyze_ad(collected_ad)
 

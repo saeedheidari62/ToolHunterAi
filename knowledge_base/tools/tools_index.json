@@ -46,6 +46,22 @@
         "بتن کن بوش مدل gsh500",
         "چکش تخریب بوش gsh500"
       ]
+    },
+    {
+      "id": "dewalt_d25810",
+      "name": "DeWalt D25810",
+      "brand": "DeWalt",
+      "category": "Demolition Hammer",
+      "file": "dewalt_d25810.json",
+      "aliases": [
+        "d25810",
+        "d 25810",
+        "dewalt d25810",
+        "dewalt d 25810",
+        "دیوالت d25810",
+        "دیوالت 25810",
+        "چکش تخریب دیوالت"
+      ]
     }
   ]
 }

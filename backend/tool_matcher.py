@@ -23,7 +23,7 @@ class ToolMatcher:
 
     def normalize(self, text):
 
-        text = text.lower()
+        text = str(text or "").lower()
 
         replacements = {
             "-": " ",
@@ -38,9 +38,11 @@ class ToolMatcher:
 
         return text.strip()
 
-    def match(self, text):
+    def match_all(self, text):
 
         text = self.normalize(text)
+
+        matches = []
 
         for tool in self.tools:
 
@@ -53,6 +55,8 @@ class ToolMatcher:
             candidates.extend(
                 tool.get("aliases", [])
             )
+
+            found = False
 
             for candidate in candidates:
 
@@ -67,6 +71,19 @@ class ToolMatcher:
                     continue
 
                 if candidate in text:
-                    return tool["id"]
+                    found = True
+                    break
 
-        return None
+            if found:
+                matches.append(tool["id"])
+
+        return matches
+
+    def match(self, text):
+
+        matches = self.match_all(text)
+
+        if not matches:
+            return None
+
+        return matches[0]

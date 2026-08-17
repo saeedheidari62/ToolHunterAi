@@ -1,0 +1,41 @@
+{
+  "tool_name": "DeWalt D25810",
+  "category": "Demolition Hammer",
+  "brand": "DeWalt",
+  "technical": {
+    "score": 90
+  },
+  "brand_info": {
+    "score": 95
+  },
+  "market": {
+    "new_price": 32000000,
+    "used_price_min": 20000000,
+    "used_price_max": 26000000
+  },
+  "common_failures": [
+    "Worn carbon brushes",
+    "Bearing noise",
+    "Hammer mechanism wear",
+    "Armature damage",
+    "Excessive vibration"
+  ],
+  "inspection": [
+    "Test hammer operation",
+    "Check impact power",
+    "Listen for bearing noise",
+    "Check excessive vibration",
+    "Check excessive sparking",
+    "Inspect power cable"
+  ],
+  "repair": {
+    "difficulty": "Medium",
+    "parts_available": true
+  },
+  "risk": {
+    "score": 35,
+    "level": "Medium"
+  },
+  "buy_score": 80,
+  "recommendation": "BUY"
+}
