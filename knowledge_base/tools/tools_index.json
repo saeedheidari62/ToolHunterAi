@@ -30,6 +30,22 @@
         "ماکیتا اچ آر 2470",
         "بتن کن ماکیتا"
       ]
+    },
+    {
+      "id": "bosch_gsh500",
+      "name": "Bosch GSH500",
+      "brand": "Bosch",
+      "category": "Demolition Hammer",
+      "file": "bosch_gsh500.json",
+      "aliases": [
+        "gsh500",
+        "gsh 500",
+        "bosch gsh500",
+        "bosch gsh 500",
+        "بتن کن بوش gsh500",
+        "بتن کن بوش مدل gsh500",
+        "چکش تخریب بوش gsh500"
+      ]
     }
   ]
 }

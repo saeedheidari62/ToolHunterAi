@@ -42,13 +42,29 @@ def prepare_ad(ad):
     if not isinstance(ad, dict):
         return ad
 
-    if "url" in ad:
-        fetched_ad = diwar_fetcher.fetch(ad["url"])
-        if not fetched_ad:
-            return None
-        return diwar_collector.collect(fetched_ad)
+    if "url" not in ad:
+        return ad
 
-    return ad
+    url = str(ad.get("url", "")).strip()
+
+    if not url:
+        return ad
+
+    fetched_ad = diwar_fetcher.fetch(url)
+
+    if not isinstance(fetched_ad, dict):
+        return {
+            "_prepare_error": "Divar advertisement could not be fetched."
+        }
+
+    collected_ad = diwar_collector.collect(fetched_ad)
+
+    if not isinstance(collected_ad, dict):
+        return {
+            "_prepare_error": "Divar advertisement could not be collected."
+        }
+
+    return collected_ad
 
 
 def analyze_single_ad(ad):
@@ -153,7 +169,21 @@ def analyze():
 
     for index, ad in enumerate(ads):
 
-        result = analyze_single_ad(ad)
+        if isinstance(ad, dict) and "url" in ad:
+            prepared_ad = prepare_ad(ad)
+
+            if not isinstance(prepared_ad, dict):
+                result = {
+                    "error": "Invalid advertisement data.",
+                    "errors": [
+                        "Divar advertisement could not be collected."
+                    ]
+                }
+            else:
+                result = analyze_single_ad(prepared_ad)
+
+        else:
+            result = analyze_single_ad(ad)
 
         if "error" in result:
             errors.append({
@@ -181,7 +211,6 @@ def analyze():
 
     analysis_record = {
         "analysis_id": analysis_id,
-
         "created_at": created_at,
         "service": "ToolHunterAI API",
         "version": "2.0",

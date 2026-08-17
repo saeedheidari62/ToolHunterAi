@@ -45,10 +45,6 @@ class DiwarFetcher:
             "unknown"
         )
 
-        # -------------------------------------------------
-        # Fallback seller detection
-        # -------------------------------------------------
-
         if not seller_type:
 
             seller_type = self._detect_seller_type(
@@ -56,22 +52,31 @@ class DiwarFetcher:
                 description
             )
 
-        # -------------------------------------------------
-        # Fallback condition
-        # -------------------------------------------------
-
         if not condition:
 
             condition = "unknown"
+
+        raw_price = state.get(
+            "price",
+            0
+        )
+
+        try:
+
+            price = int(raw_price) * 1000
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            price = 0
 
         return {
             "url": url,
             "title": title,
             "description": description,
-            "price": state.get(
-                "price",
-                0
-            ),
+            "price": price,
             "seller_type": seller_type,
             "condition": condition,
             "brand_model": state.get(

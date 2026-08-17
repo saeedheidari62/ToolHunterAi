@@ -1,0 +1,51 @@
+{
+  "tool_name": "Bosch GSH500",
+  "category": "Demolition Hammer",
+  "brand": "Bosch",
+
+  "technical": {
+    "score": 90
+  },
+
+  "brand_info": {
+    "score": 95
+  },
+
+  "market": {
+    "new_price": 12000000,
+    "used_price_min": 6500000,
+    "used_price_max": 8500000
+  },
+
+  "common_failures": [
+    "Worn carbon brushes",
+    "Bearing noise",
+    "Hammer mechanism wear",
+    "Armature damage",
+    "Gearbox wear",
+    "Excessive vibration"
+  ],
+
+  "inspection": [
+    "Test hammer operation",
+    "Check impact power",
+    "Listen for bearing noise",
+    "Check excessive vibration",
+    "Check excessive sparking",
+    "Inspect power cable"
+  ],
+
+  "repair": {
+    "difficulty": "Medium",
+    "parts_available": true
+  },
+
+  "risk": {
+    "score": 30,
+    "level": "Low"
+  },
+
+  "buy_score": 82,
+
+  "recommendation": "BUY"
+}
