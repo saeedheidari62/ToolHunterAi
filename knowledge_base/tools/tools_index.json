@@ -62,6 +62,42 @@
         "دیوالت 25810",
         "چکش تخریب دیوالت"
       ]
+    },
+    {
+      "id": "bosch_p10",
+      "name": "Bosch P10",
+      "brand": "Bosch",
+      "category": "Jigsaw",
+      "file": "bosch_p10.json",
+      "aliases": [
+        "bosch p10",
+        "بوش p10",
+        "بوش p۱۰"
+      ]
+    },
+    {
+      "id": "bosch_pss280",
+      "name": "Bosch PSS280",
+      "brand": "Bosch",
+      "category": "Orbital Sander",
+      "file": "bosch_pss280.json",
+      "aliases": [
+        "pss280",
+        "bosch pss280",
+        "بوش pss280"
+      ]
+    },
+    {
+      "id": "makita_3600b",
+      "name": "Makita 3600B",
+      "brand": "Makita",
+      "category": "Router",
+      "file": "makita_3600b.json",
+      "aliases": [
+        "3600b",
+        "makita 3600b",
+        "ماکیتا 3600b"
+      ]
     }
   ]
 }

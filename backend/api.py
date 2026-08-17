@@ -10,6 +10,7 @@ from .diwar_fetcher import DiwarFetcher
 from .decision_engine import make_decision
 from .ad_analyzer import analyze_ad
 from .tool_matcher import ToolMatcher
+from .multi_tool_analyzer import MultiToolAnalyzer
 from .rank_engine import RankEngine
 from .decision_explainer import DecisionExplainer
 from .history_manager import (
@@ -25,6 +26,7 @@ collector = AdCollector()
 diwar_collector = DiwarCollector()
 diwar_fetcher = DiwarFetcher()
 matcher = ToolMatcher()
+multi_tool_analyzer = MultiToolAnalyzer()
 ranker = RankEngine()
 explainer = DecisionExplainer()
 normalizer = AdNormalizer()
@@ -108,14 +110,50 @@ def analyze_single_ad(ad):
         }
 
     if len(tool_ids) > 1:
+        multi_result = multi_tool_analyzer.analyze(
+            collected_ad["description"],
+            tool_ids
+        )
+
+        ad_analysis = analyze_ad(collected_ad)
+
+        individual_results = []
+
+        for item in multi_result["tools"]:
+
+            tool_id = item["tool_id"]
+            asking_price = item["asking_price"]
+
+            decision_data = {
+                "tool_name": tool_id,
+                "asking_price": asking_price or 0,
+                "has_test": collected_ad["has_test"],
+                "has_warranty": collected_ad["has_warranty"],
+                "description": item["text"],
+                "ad_score": ad_analysis["ad_score"],
+                "analysis": ad_analysis["analysis"],
+                "image_file": ad.get("image_file"),
+                "image_urls": ad.get("image_urls", []),
+            }
+
+            decision = make_decision(decision_data)
+
+            individual_results.append({
+                "tool_id": tool_id,
+                "asking_price": asking_price,
+                "decision": decision
+            })
+
         return {
             "error": "Multiple tools detected.",
             "title": collected_ad["title"],
             "matched_tools": tool_ids,
+            "multi_tool_analysis": multi_result,
+            "individual_results": individual_results,
             "decision": "REVIEW",
             "reason": (
-                "Multiple tools were detected in this advertisement. "
-                "The asking price cannot safely be assigned to one tool."
+                "Multiple tools were detected and each tool "
+                "was analyzed independently."
             )
         }
 
