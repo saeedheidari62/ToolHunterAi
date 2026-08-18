@@ -2,50 +2,16 @@
   "tool_name": "Bosch GBH 2-26",
   "category": "Rotary Hammer",
   "brand": "Bosch",
-
-  "technical": {
-    "score": 92
-  },
-
-  "brand_info": {
-    "score": 95
-  },
-
-  "market": {
-    "new_price": 14500000,
-    "used_price_min": 8000000,
-    "used_price_max": 9500000
-  },
-
-  "common_failures": [
-    "Worn carbon brushes",
-    "Broken chuck",
-    "Bearing noise",
-    "Gearbox wear",
-    "Hammer mode failure",
-    "Armature damage"
-  ],
-
-  "inspection": [
-    "Check drilling power",
-    "Test hammer mode",
-    "Listen for bearing noise",
-    "Check excessive sparking",
-    "Inspect chuck movement",
-    "Inspect power cable"
-  ],
-
-  "repair": {
-    "difficulty": "Medium",
-    "parts_available": true
-  },
-
-  "risk": {
-    "score": 30,
-    "level": "Low"
-  },
-
+  "aliases": ["gbh226", "gbh 2 26", "gbh 2-26", "bosch 2 26", "بوش ۲۶", "بتن کن بوش"],
+  "technical": {"score": 92, "sources": [], "last_updated": null},
+  "brand_info": {"score": 95},
+  "market": {"new_price": 14500000, "used_price_min": 8000000, "used_price_max": 9500000, "median_price": 8750000, "sample_count": 0, "price_confidence": 0.0, "sources": [], "status": "available", "last_updated": null},
+  "common_failures": ["Worn carbon brushes", "Broken chuck", "Bearing noise", "Gearbox wear", "Hammer mode failure", "Armature damage"],
+  "inspection": ["Check drilling power", "Test hammer mode", "Listen for bearing noise", "Check excessive sparking", "Inspect chuck movement", "Inspect power cable"],
+  "repair": {"difficulty": "Medium", "parts_available": true},
+  "risk": {"score": 30, "level": "Low"},
   "buy_score": 85,
-
-  "recommendation": "BUY"
+  "recommendation": "BUY",
+  "confidence": "legacy_static",
+  "sources": []
 }
