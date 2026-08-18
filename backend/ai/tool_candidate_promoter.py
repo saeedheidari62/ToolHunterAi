@@ -35,11 +35,7 @@ class ToolCandidatePromoter:
         if not isinstance(market_data, dict):
             market_data = {}
 
-        technical_result = self.technical_collector.collect(
-            candidate=candidate,
-            description=candidate.get("description", ""),
-            sources=candidate.get("technical_sources", []),
-        )
+        technical_result = self.technical_collector.collect(candidate=candidate, description=candidate.get("description", ""), sources=candidate.get("technical_sources", []))
         technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
         technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
         sources = list(dict.fromkeys([
@@ -63,6 +59,7 @@ class ToolCandidatePromoter:
                 "sample_count": market_data.get("sample_count", market_sample_count),
                 "price_confidence": market_data.get("price_confidence", 0.0),
                 "sources": market_data.get("sources", ["divar"]),
+                "status": "available",
                 "last_updated": market_data.get("last_updated"),
             },
             "common_failures": candidate.get("common_failures", []),
@@ -111,9 +108,21 @@ class ToolCandidatePromoter:
         if not isinstance(candidate.get("market_data"), dict):
             return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
 
+        technical_result = self.technical_collector.collect(
+            candidate=candidate,
+            description=candidate.get("description", ""),
+            sources=candidate.get("technical_sources", []),
+        )
+        technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
+        technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
+
         evidence_result = self.evidence_layer.build(
             discovery={"confidence": confidence, "sources": evidence},
-            technical=candidate.get("technical", {}),
+            technical={
+                "confidence": technical_result.get("technical_confidence", "NONE"),
+                "sources": technical_sources,
+                **technical_data,
+            },
             market=candidate.get("market_data", {}),
         )
         if not evidence_result["sufficient"]:
@@ -131,22 +140,12 @@ class ToolCandidatePromoter:
         data["evidence"] = evidence_result
         data["confidence"] = confidence
         data.setdefault("sources", evidence_result.get("sources", []))
+        data["technical"] = technical_data
+        data.setdefault("discovery", {})["technical_sources"] = technical_sources
+        data["discovery"]["technical_confidence"] = technical_result.get("technical_confidence", "NONE")
+        data["discovery"]["technical_last_updated"] = technical_result.get("last_updated")
 
-        technical_result = self.technical_collector.collect(
-            candidate=candidate,
-            description=candidate.get("description", ""),
-            sources=candidate.get("technical_sources", []),
-        )
-        if technical_result.get("success"):
-            data["technical"] = technical_result.get("technical", data.get("technical", {}))
-            data.setdefault("discovery", {})["technical_sources"] = technical_result.get("technical_sources", [])
-            data["discovery"]["technical_confidence"] = technical_result.get("technical_confidence", "NONE")
-            data["discovery"]["technical_last_updated"] = technical_result.get("last_updated")
-
-        technical_normalized = self.knowledge_builder.normalize_technical(
-            data.get("technical", {}),
-            data.get("discovery", {}).get("technical_sources", []),
-        )
+        technical_normalized = self.knowledge_builder.normalize_technical(data.get("technical", {}), technical_sources)
         if technical_normalized.get("success"):
             data["technical"] = technical_normalized["technical"]
 
@@ -163,14 +162,16 @@ class ToolCandidatePromoter:
         else:
             index = {"tools": []}
 
-        index.setdefault("tools", []).append({
-            "id": tool_id,
-            "name": f"{brand} {model}".strip(),
-            "brand": brand,
-            "category": data.get("category", "toolbox"),
-            "file": filename,
-            "aliases": data.get("aliases", [model, f"{brand} {model}".strip()]),
-        })
+        tools = index.setdefault("tools", [])
+        if not any(item.get("id") == tool_id for item in tools):
+            tools.append({
+                "id": tool_id,
+                "name": f"{brand} {model}".strip(),
+                "brand": brand,
+                "category": data.get("category", "toolbox"),
+                "file": filename,
+                "aliases": data.get("aliases", [model, f"{brand} {model}".strip()]),
+            })
 
         with self.index_path.open("w", encoding="utf-8") as handle:
             json.dump(index, handle, ensure_ascii=False, indent=2)
