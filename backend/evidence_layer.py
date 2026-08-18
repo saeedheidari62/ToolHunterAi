@@ -1,0 +1,55 @@
+from datetime import datetime, timezone
+
+
+class EvidenceLayer:
+    """Normalize and score technical, market, and discovery evidence."""
+
+    def __init__(self, minimum_sources=1):
+        self.minimum_sources = int(minimum_sources)
+
+    def _source_list(self, value):
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return []
+        return list(dict.fromkeys(str(item).strip() for item in value if str(item).strip()))
+
+    def build(self, discovery=None, technical=None, market=None):
+        discovery = discovery if isinstance(discovery, dict) else {}
+        technical = technical if isinstance(technical, dict) else {}
+        market = market if isinstance(market, dict) else {}
+
+        sources = []
+        sources.extend(self._source_list(discovery.get("sources") or discovery.get("evidence")))
+        sources.extend(self._source_list(technical.get("sources")))
+        sources.extend(self._source_list(market.get("sources")))
+        sources = list(dict.fromkeys(sources))
+
+        components = {
+            "discovery": bool(discovery),
+            "technical": bool(technical),
+            "market": bool(market),
+        }
+        component_count = sum(components.values())
+        source_score = min(1.0, len(sources) / 3.0)
+        coverage_score = component_count / 3.0
+
+        confidence_values = []
+        for value in (discovery.get("confidence"), technical.get("confidence"), market.get("price_confidence")):
+            try:
+                confidence_values.append(float(value))
+            except (TypeError, ValueError):
+                pass
+        confidence_score = sum(confidence_values) / len(confidence_values) if confidence_values else 0.0
+        overall = round((coverage_score * 0.4) + (source_score * 0.3) + (confidence_score * 0.3), 3)
+
+        return {
+            "components": components,
+            "sources": sources,
+            "source_count": len(sources),
+            "coverage_score": round(coverage_score, 3),
+            "confidence_score": round(confidence_score, 3),
+            "overall_confidence": overall,
+            "sufficient": bool(sources) and len(sources) >= self.minimum_sources and component_count > 0,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+        }
