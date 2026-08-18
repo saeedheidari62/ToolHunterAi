@@ -1,15 +1,16 @@
 import json
-import os
 import re
 from pathlib import Path
 
 
 class ToolCandidatePromoter:
-    """Promote only validated candidates into the Knowledge Base."""
+    """Promote only validated, evidence-backed candidates into the Knowledge Base."""
 
-    def __init__(self, knowledge_dir="knowledge_base/tools"):
+    def __init__(self, knowledge_dir="knowledge_base/tools", min_samples=2, min_confidence=0.80):
         self.knowledge_dir = Path(knowledge_dir)
         self.index_path = self.knowledge_dir / "tools_index.json"
+        self.min_samples = int(min_samples)
+        self.min_confidence = float(min_confidence)
 
     def _slug(self, brand, model, variant=""):
         value = "_".join(
@@ -25,8 +26,24 @@ class ToolCandidatePromoter:
         brand = str(candidate.get("brand", "")).strip()
         model = str(candidate.get("model", "")).strip()
         variant = str(candidate.get("variant", "")).strip()
+        evidence = candidate.get("evidence", [])
+        try:
+            confidence = float(candidate.get("confidence", 0))
+        except (TypeError, ValueError):
+            confidence = 0
+        try:
+            market_sample_count = int(candidate.get("market_sample_count", 0))
+        except (TypeError, ValueError):
+            market_sample_count = 0
+
         if not brand or not model:
             return {"status": "REJECTED", "reason": "Brand and model are required."}
+        if confidence < self.min_confidence:
+            return {"status": "REJECTED", "reason": "Discovery confidence is below promotion threshold."}
+        if market_sample_count < self.min_samples:
+            return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
+        if not isinstance(evidence, list) or not evidence:
+            return {"status": "REJECTED", "reason": "Evidence is required for promotion."}
 
         tool_id = self._slug(brand, model, variant)
         filename = f"{tool_id}.json"
@@ -53,8 +70,9 @@ class ToolCandidatePromoter:
             "recommendation": "REVIEW",
             "discovery": {
                 "variant": variant,
-                "confidence": candidate.get("confidence", 0),
-                "evidence": candidate.get("evidence", []),
+                "confidence": confidence,
+                "evidence": evidence,
+                "market_sample_count": market_sample_count,
             },
         }
 
