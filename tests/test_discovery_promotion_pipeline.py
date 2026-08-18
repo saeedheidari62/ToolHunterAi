@@ -118,6 +118,13 @@ def test_promoted_candidate_is_rematched_in_same_request(monkeypatch):
         "max_price": 25000000,
         "confidence": "HIGH",
     })
+    monkeypatch.setattr(api, "make_decision", lambda data: {
+        "decision": "REVIEW",
+        "buy_score": 70,
+        "risk_score": 40,
+        "price_status": "FAIR_PRICE",
+        "price_difference_percent": 0,
+    })
 
     result = api.analyze_single_ad({
         "title": "Makita 8281DWAE",
