@@ -2,48 +2,16 @@
   "tool_name": "Bosch P10",
   "category": "Jigsaw",
   "brand": "Bosch",
-
-  "technical": {
-    "score": 50
-  },
-
-  "brand_info": {
-    "score": 95
-  },
-
-  "market": {
-    "new_price": 0,
-    "used_price_min": 0,
-    "used_price_max": 0
-  },
-
-  "common_failures": [
-    "Worn carbon brushes",
-    "Bearing noise",
-    "Blade mechanism wear",
-    "Armature damage",
-    "Power cable damage"
-  ],
-
-  "inspection": [
-    "Test motor operation",
-    "Check cutting power",
-    "Listen for bearing noise",
-    "Inspect blade mechanism",
-    "Inspect power cable"
-  ],
-
-  "repair": {
-    "difficulty": "Medium",
-    "parts_available": true
-  },
-
-  "risk": {
-    "score": 50,
-    "level": "Unknown"
-  },
-
+  "aliases": ["bosch p10", "بوش p10", "بوش p۱۰"],
+  "technical": {"score": 50, "sources": [], "last_updated": null},
+  "brand_info": {"score": 95},
+  "market": {"new_price": 0, "used_price_min": 0, "used_price_max": 0, "median_price": null, "sample_count": 0, "price_confidence": 0.0, "sources": [], "status": "unavailable", "last_updated": null},
+  "common_failures": ["Worn carbon brushes", "Bearing noise", "Blade mechanism wear", "Armature damage", "Power cable damage"],
+  "inspection": ["Test motor operation", "Check cutting power", "Listen for bearing noise", "Inspect blade mechanism", "Inspect power cable"],
+  "repair": {"difficulty": "Medium", "parts_available": true},
+  "risk": {"score": 50, "level": "Unknown"},
   "buy_score": 50,
-
-  "recommendation": "REVIEW"
+  "recommendation": "REVIEW",
+  "confidence": "legacy_static",
+  "sources": []
 }
