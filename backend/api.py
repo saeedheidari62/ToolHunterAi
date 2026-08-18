@@ -22,6 +22,7 @@ from .history_manager import (
 from .ad_normalizer import AdNormalizer
 from .divar_search_engine import DivarSearchEngine
 from .ai.tool_resolver import AIToolResolver
+from .ai.tool_discovery import AIToolDiscovery
 
 app = Flask(__name__)
 
@@ -36,6 +37,7 @@ explainer = DecisionExplainer()
 normalizer = AdNormalizer()
 divar_search_engine = DivarSearchEngine()
 ai_tool_resolver = AIToolResolver()
+ai_tool_discovery = AIToolDiscovery()
 
 
 def create_analysis_id():
@@ -190,6 +192,7 @@ def analyze_single_ad(ad):
 
     tool_ids = matcher.match_all(match_text)
     ai_resolution = None
+    tool_discovery = None
 
     if not tool_ids:
         ai_resolution = ai_tool_resolver.resolve(match_text)
@@ -197,10 +200,12 @@ def analyze_single_ad(ad):
             tool_ids = [ai_resolution["tool_id"]]
 
     if not tool_ids:
+        tool_discovery = ai_tool_discovery.discover(match_text)
         return {
             "error": "Tool not recognized.",
             "title": collected_ad["title"],
-            "matched_tools": []
+            "matched_tools": [],
+            "tool_discovery": tool_discovery
         }
 
     if len(tool_ids) > 1:
@@ -218,7 +223,7 @@ def analyze_single_ad(ad):
 
             decision_data = {
                 "tool_name": tool_id,
-                "asking_price": asking_price or 0,
+                "asking_price": asking_price,
                 "has_test": collected_ad["has_test"],
                 "has_warranty": collected_ad["has_warranty"],
                 "description": item["text"],
@@ -241,35 +246,22 @@ def analyze_single_ad(ad):
             "title": collected_ad["title"],
             "matched_tools": tool_ids,
             "multi_tool_analysis": multi_result,
-            "individual_results": individual_results,
-            "decision": "REVIEW",
-            "reason": (
-                "Multiple tools were detected and each tool "
-                "was analyzed independently."
-            )
+            "individual_results": individual_results
         }
 
     tool_id = tool_ids[0]
-
-    variant = variant_matcher.detect(
-        collected_ad["title"]
-        + " "
-        + collected_ad["description"],
-        tool_id
-    )
+    variant = variant_matcher.detect(match_text, tool_id)
 
     ad_analysis = analyze_ad(collected_ad)
-
     market_data = get_dynamic_market_data(
         tool_id,
-        collected_ad.get("city", "tehran"),
-        variant
+        city=collected_ad.get("city", "tehran"),
+        variant=variant
     )
 
     decision_data = {
         "tool_name": tool_id,
         "asking_price": collected_ad["price"],
-        "market_data": market_data,
         "has_test": collected_ad["has_test"],
         "has_warranty": collected_ad["has_warranty"],
         "description": collected_ad["description"],
@@ -277,152 +269,16 @@ def analyze_single_ad(ad):
         "analysis": ad_analysis["analysis"],
         "image_file": ad.get("image_file"),
         "image_urls": ad.get("image_urls", []),
+        "market_data": market_data,
     }
 
-    result = make_decision(decision_data)
+    decision = make_decision(decision_data)
 
-    result["has_test"] = collected_ad["has_test"]
-    result["has_warranty"] = collected_ad["has_warranty"]
-    result["price_status"] = result.get("price_status")
-    result["price_difference_percent"] = result.get("price_difference_percent")
-    result["ad_score"] = ad_analysis["ad_score"]
+    result = dict(decision)
     result["tool"] = tool_id
     result["variant"] = variant
     result["title"] = collected_ad["title"]
-    result["market_data"] = market_data
-
     if ai_resolution:
         result["ai_tool_resolution"] = ai_resolution
 
     return result
-
-
-@app.route("/analyze", methods=["POST"])
-def analyze():
-    data = request.get_json(silent=True)
-
-    if not data:
-        return jsonify({
-            "error": "Invalid or missing JSON data."
-        }), 400
-
-    if "ads" not in data:
-        return jsonify({
-            "error": "Field 'ads' is required."
-        }), 400
-
-    ads = data["ads"]
-
-    if not isinstance(ads, list):
-        return jsonify({
-            "error": "Field 'ads' must be a list."
-        }), 400
-
-    if not ads:
-        return jsonify({
-            "error": "Ads list cannot be empty."
-        }), 400
-
-    results = []
-    errors = []
-
-    for index, ad in enumerate(ads):
-        if isinstance(ad, dict) and "url" in ad:
-            prepared_ad = prepare_ad(ad)
-
-            if not isinstance(prepared_ad, dict):
-                result = {
-                    "error": "Invalid advertisement data.",
-                    "errors": [
-                        "Divar advertisement could not be collected."
-                    ]
-                }
-            else:
-                result = analyze_single_ad(prepared_ad)
-        else:
-            result = analyze_single_ad(ad)
-
-        if "error" in result:
-            errors.append({
-                "index": index,
-                "error": result
-            })
-        else:
-            results.append(result)
-
-    if not results:
-        return jsonify({
-            "error": "No valid ads could be analyzed.",
-            "errors": errors
-        }), 400
-
-    final = ranker.rank(results)
-
-    explanation = explainer.explain(
-        final["best_choice"],
-        final["ranking"]
-    )
-
-    analysis_id = create_analysis_id()
-    created_at = create_timestamp()
-
-    analysis_record = {
-        "analysis_id": analysis_id,
-        "created_at": created_at,
-        "service": "ToolHunterAI API",
-        "version": "2.0",
-        "total_ads": final["total_ads"],
-        "best_choice": final["best_choice"],
-        "ranking": final["ranking"],
-        "explanation": explanation,
-        "errors": errors
-    }
-
-    save_history(analysis_record)
-
-    return jsonify({
-        "analysis_id": analysis_id,
-        "created_at": created_at,
-        "service": "ToolHunterAI API",
-        "version": "2.0",
-        "total_ads": final["total_ads"],
-        "best_choice": final["best_choice"],
-        "ranking": final["ranking"],
-        "explanation": explanation,
-        "errors": errors
-    })
-
-
-@app.route("/history", methods=["GET"])
-def history():
-    records = get_history()
-
-    return jsonify({
-        "service": "ToolHunterAI API",
-        "total": len(records),
-        "history": records
-    })
-
-
-@app.route("/history/<analysis_id>", methods=["GET"])
-def history_detail(analysis_id):
-    record = get_history_by_id(analysis_id)
-
-    if record is None:
-        return jsonify({
-            "error": "Analysis not found.",
-            "analysis_id": analysis_id
-        }), 404
-
-    return jsonify({
-        "service": "ToolHunterAI API",
-        "analysis": record
-    })
-
-
-if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
-    )
