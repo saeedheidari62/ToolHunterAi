@@ -21,6 +21,7 @@ from .history_manager import (
 )
 from .ad_normalizer import AdNormalizer
 from .divar_search_engine import DivarSearchEngine
+from .ai.tool_resolver import AIToolResolver
 
 app = Flask(__name__)
 
@@ -34,6 +35,7 @@ ranker = RankEngine()
 explainer = DecisionExplainer()
 normalizer = AdNormalizer()
 divar_search_engine = DivarSearchEngine()
+ai_tool_resolver = AIToolResolver()
 
 
 def create_analysis_id():
@@ -88,15 +90,6 @@ def get_dynamic_market_data(
     city="tehran",
     variant=None
 ):
-    """
-    Search Divar for the tool and calculate
-    a dynamic market price snapshot.
-
-    If dynamic search fails or produces insufficient
-    data, return None so the static Knowledge Base
-    remains the fallback.
-    """
-
     city_map = {
         "تهران": "tehran",
         "teران": "tehran",
@@ -134,34 +127,25 @@ def get_dynamic_market_data(
         if not filtered:
             return None
 
-        market_data = (
-            divar_search_engine.get_market_prices({
-                "results": filtered
-            })
-        )
+        market_data = divar_search_engine.get_market_prices({
+            "results": filtered
+        })
 
         if not market_data.get("valid"):
             return None
 
-        sample_count = market_data.get(
-            "sample_count",
-            0
-        )
+        sample_count = market_data.get("sample_count", 0)
 
         if sample_count >= 3:
             market_data["confidence"] = "HIGH"
-
         elif sample_count >= 2:
             market_data["confidence"] = "MEDIUM"
-
         elif sample_count == 1:
             market_data["confidence"] = "LOW"
-
         else:
             return None
 
         market_data["variant"] = variant
-
         return market_data
 
     except Exception:
@@ -205,6 +189,12 @@ def analyze_single_ad(ad):
     )
 
     tool_ids = matcher.match_all(match_text)
+    ai_resolution = None
+
+    if not tool_ids:
+        ai_resolution = ai_tool_resolver.resolve(match_text)
+        if ai_resolution:
+            tool_ids = [ai_resolution["tool_id"]]
 
     if not tool_ids:
         return {
@@ -220,11 +210,9 @@ def analyze_single_ad(ad):
         )
 
         ad_analysis = analyze_ad(collected_ad)
-
         individual_results = []
 
         for item in multi_result["tools"]:
-
             tool_id = item["tool_id"]
             asking_price = item["asking_price"]
 
@@ -295,20 +283,16 @@ def analyze_single_ad(ad):
 
     result["has_test"] = collected_ad["has_test"]
     result["has_warranty"] = collected_ad["has_warranty"]
-
-    result["price_status"] = result.get(
-        "price_status"
-    )
-
-    result["price_difference_percent"] = result.get(
-        "price_difference_percent"
-    )
-
+    result["price_status"] = result.get("price_status")
+    result["price_difference_percent"] = result.get("price_difference_percent")
     result["ad_score"] = ad_analysis["ad_score"]
     result["tool"] = tool_id
     result["variant"] = variant
     result["title"] = collected_ad["title"]
     result["market_data"] = market_data
+
+    if ai_resolution:
+        result["ai_tool_resolution"] = ai_resolution
 
     return result
 
@@ -343,7 +327,6 @@ def analyze():
     errors = []
 
     for index, ad in enumerate(ads):
-
         if isinstance(ad, dict) and "url" in ad:
             prepared_ad = prepare_ad(ad)
 
@@ -356,7 +339,6 @@ def analyze():
                 }
             else:
                 result = analyze_single_ad(prepared_ad)
-
         else:
             result = analyze_single_ad(ad)
 
@@ -413,7 +395,6 @@ def analyze():
 
 @app.route("/history", methods=["GET"])
 def history():
-
     records = get_history()
 
     return jsonify({
@@ -425,7 +406,6 @@ def history():
 
 @app.route("/history/<analysis_id>", methods=["GET"])
 def history_detail(analysis_id):
-
     record = get_history_by_id(analysis_id)
 
     if record is None:
