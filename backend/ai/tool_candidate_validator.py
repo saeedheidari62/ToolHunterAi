@@ -26,9 +26,18 @@ class ToolCandidateValidator:
 
         query = f"{brand} {model}"
         try:
-            search_result = self.search_engine.search(city, query)
+            search_result = self.search_engine.search(city, query, variant=str(candidate.get("variant", "")).strip() or None)
             results = search_result.get("results", [])
+        except TypeError:
+            try:
+                search_result = self.search_engine.search(city, query)
+                results = search_result.get("results", [])
+            except Exception:
+                results = None
         except Exception:
+            results = None
+
+        if results is None:
             return {
                 "status": "UNVERIFIED",
                 "brand": brand,
@@ -36,6 +45,8 @@ class ToolCandidateValidator:
                 "variant": str(candidate.get("variant", "")).strip(),
                 "confidence": confidence,
                 "evidence": candidate.get("evidence", []),
+                "technical_data": candidate.get("technical_data", candidate.get("technical", {})),
+                "technical_sources": candidate.get("technical_sources", []),
                 "market_sample_count": 0,
                 "market_data": None,
                 "reason": "Market validation search failed."
@@ -75,6 +86,8 @@ class ToolCandidateValidator:
             "variant": str(candidate.get("variant", "")).strip(),
             "confidence": confidence,
             "evidence": candidate.get("evidence", []),
+            "technical_data": candidate.get("technical_data", candidate.get("technical", {})),
+            "technical_sources": candidate.get("technical_sources", []),
             "market_sample_count": len(matched),
             "market_data": market_data,
             "query": query,
