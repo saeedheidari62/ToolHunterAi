@@ -110,7 +110,9 @@ def test_invalid_divar_url_does_not_crash(monkeypatch):
     from backend import api
     monkeypatch.setattr(api.diwar_fetcher, "fetch", lambda _: (_ for _ in ()).throw(RuntimeError("fetch failed")))
     result = analyze_single_ad({"url": "https://divar.ir/v/INVALID_TEST_URL"})
-    assert result == {"error": "Divar advertisement could not be fetched."}, result
+    assert result["error"] == "FETCH_FAILED", result
+    assert result["diagnostics"]["fetch_attempts"] == 3, result
+    assert result["diagnostics"]["last_stage"] == "fetch", result
 
 
 def test_unknown_tool_returns_structured_error():
