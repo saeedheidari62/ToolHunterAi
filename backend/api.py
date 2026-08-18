@@ -21,6 +21,7 @@ from .divar_search_engine import DivarSearchEngine
 from .ai.tool_resolver import AIToolResolver
 from .ai.tool_discovery import AIToolDiscovery
 from .ai.tool_candidate_validator import ToolCandidateValidator
+from .ai.tool_candidate_promoter import ToolCandidatePromoter
 
 app = Flask(__name__)
 collector = AdCollector()
@@ -36,6 +37,7 @@ divar_search_engine = DivarSearchEngine()
 ai_tool_resolver = AIToolResolver()
 ai_tool_discovery = AIToolDiscovery()
 ai_tool_candidate_validator = ToolCandidateValidator(divar_search_engine)
+ai_tool_candidate_promoter = ToolCandidatePromoter()
 
 _PREPARED_AD_CACHE = {}
 _PREPARED_AD_CACHE_TTL_SECONDS = 300
@@ -131,6 +133,19 @@ def get_dynamic_market_data(tool_name, city="tehran", variant=None):
     except Exception:
         return None
 
+def _promote_discovered_candidate(discovery, validation, collected_ad):
+    if not isinstance(validation, dict) or validation.get("status") != "VALIDATED":
+        return None
+    candidate = dict(discovery or {})
+    candidate.update(validation)
+    candidate["status"] = validation.get("status")
+    candidate["description"] = collected_ad.get("description", "")
+    candidate["title"] = collected_ad.get("title", "")
+    candidate["city"] = collected_ad.get("city", "tehran")
+    candidate["technical_data"] = candidate.get("technical_data", discovery.get("technical_data", {}))
+    candidate["technical_sources"] = candidate.get("technical_sources", discovery.get("technical_sources", []))
+    return ai_tool_candidate_promoter.promote(candidate)
+
 def analyze_single_ad(ad):
     ad = prepare_ad(ad)
     if isinstance(ad, dict) and ad.get("_prepare_error"):
@@ -150,9 +165,11 @@ def analyze_single_ad(ad):
     if not tool_ids:
         discovery = ai_tool_discovery.discover(match_text)
         validation = None
+        promotion = None
         if discovery:
             validation = ai_tool_candidate_validator.validate(discovery, city=collected_ad.get("city", "tehran"))
-        return {"error": "Tool not recognized.", "title": collected_ad["title"], "matched_tools": [], "tool_discovery": discovery, "tool_discovery_validation": validation}
+            promotion = _promote_discovered_candidate(discovery, validation, collected_ad)
+        return {"error": "Tool not recognized.", "title": collected_ad["title"], "matched_tools": [], "tool_discovery": discovery, "tool_discovery_validation": validation, "tool_candidate_promotion": promotion}
     if len(tool_ids) > 1:
         multi_result = multi_tool_analyzer.analyze(collected_ad["description"], tool_ids)
         ad_analysis = analyze_ad(collected_ad)
