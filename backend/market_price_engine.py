@@ -5,13 +5,10 @@ class MarketPriceEngine:
             return prices
 
         values = sorted(prices)
-
         q1_index = (len(values) - 1) // 4
         q3_index = (len(values) - 1) * 3 // 4
-
         q1 = values[q1_index]
         q3 = values[q3_index]
-
         iqr = q3 - q1
 
         if iqr <= 0:
@@ -19,23 +16,15 @@ class MarketPriceEngine:
 
         lower = q1 - (1.5 * iqr)
         upper = q3 + (1.5 * iqr)
-
-        return [
-            price
-            for price in values
-            if lower <= price <= upper
-        ]
+        return [price for price in values if lower <= price <= upper]
 
     def calculate(self, prices):
         valid_prices = []
-
         for price in prices:
             try:
                 value = float(price)
-
                 if value > 0:
                     valid_prices.append(value)
-
             except (TypeError, ValueError):
                 continue
 
@@ -47,27 +36,30 @@ class MarketPriceEngine:
                 "sample_count": 0,
                 "min_price": None,
                 "max_price": None,
-                "median_price": None
+                "median_price": None,
+                "confidence": "NONE",
             }
 
         valid_prices.sort()
-
         count = len(valid_prices)
-
         middle = count // 2
-
         if count % 2 == 0:
-            median = (
-                valid_prices[middle - 1]
-                + valid_prices[middle]
-            ) / 2
+            median = (valid_prices[middle - 1] + valid_prices[middle]) / 2
         else:
             median = valid_prices[middle]
+
+        if count >= 3:
+            confidence = "HIGH"
+        elif count == 2:
+            confidence = "MEDIUM"
+        else:
+            confidence = "LOW"
 
         return {
             "valid": True,
             "sample_count": count,
             "min_price": valid_prices[0],
             "max_price": valid_prices[-1],
-            "median_price": median
+            "median_price": median,
+            "confidence": confidence,
         }
