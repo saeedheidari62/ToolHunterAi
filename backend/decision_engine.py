@@ -104,6 +104,12 @@ def make_decision(ad_data):
         "market_data"
     )
 
+    market_confidence = (
+        market_data.get("confidence")
+        if isinstance(market_data, dict)
+        else None
+    )
+
     price_result = analyze_price(
         tool,
         asking_price,
@@ -207,7 +213,7 @@ def make_decision(ad_data):
 
     if price_signal == "PRICE_ON_REQUEST":
 
-        decision ="REVIEW"
+        decision = "REVIEW"
 
     elif not has_test and not has_warranty:
 
@@ -225,14 +231,81 @@ def make_decision(ad_data):
 
         decision = "DON'T BUY"
 
+    if decision == "BUY":
+
+        decision_reason = (
+            "The price, advertisement quality, and risk profile "
+            "meet the BUY threshold."
+        )
+
+        next_action = (
+            "Perform final physical verification before payment."
+        )
+
+    elif decision == "DON'T BUY":
+
+        decision_reason = (
+            "The combined price, advertisement, or risk signals "
+            "do not meet the purchase threshold."
+        )
+
+        next_action = (
+            "Reject this listing and compare another seller."
+        )
+
+    elif market_confidence == "LOW":
+
+        decision_reason = (
+            "Market confidence is LOW, so the current price benchmark "
+            "is not strong enough for a final purchase decision."
+        )
+
+        next_action = (
+            "Collect at least 2 comparable listings before making a final decision."
+        )
+
+    elif not has_test and not has_warranty:
+
+        decision_reason = (
+            "Seller verification is insufficient because neither testing "
+            "nor warranty is available."
+        )
+
+        next_action = (
+            "Request an in-person test and confirm warranty or return terms before payment."
+        )
+
+    elif price_status in ("HIGH_PRICE", "VERY_HIGH_PRICE"):
+
+        decision_reason = (
+            "The asking price is above the reliable market benchmark."
+        )
+
+        next_action = (
+            "Negotiate toward the market range or compare another listing."
+        )
+
+    else:
+
+        decision_reason = (
+            "The current signals are not strong enough for an immediate BUY."
+        )
+
+        next_action = (
+            "Verify the tool physically and re-check the market price before payment."
+        )
+
     return {
         "decision": decision,
+        "decision_reason": decision_reason,
+        "next_action": next_action,
         "asking_price": asking_price,
         "buy_score": buy_score,
         "risk_score": risk_score,
         "ad_score": ad_score,
         "has_test": has_test,
         "has_warranty": has_warranty,
+        "market_confidence": market_confidence,
         "price_status": price_status,
         "price_score": price_score,
         "price_difference_percent": price_difference_percent,
