@@ -3,6 +3,7 @@ from pathlib import Path
 
 from .description_analyzer import analyze_description
 from .price_analyzer import analyze_price
+from .market_price_engine import MarketPriceEngine
 from .image_analyzer import analyze_image
 from .image_downloader import ImageDownloader
 
@@ -22,6 +23,7 @@ def load_tool(tool_name):
 
 
 def make_decision(ad_data):
+    market_price_engine = MarketPriceEngine()
 
     image_downloader = ImageDownloader()
 

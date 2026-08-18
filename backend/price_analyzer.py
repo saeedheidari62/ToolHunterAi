@@ -1,8 +1,15 @@
-def analyze_price(tool_data, asking_price):
+def analyze_price(
+    tool_data,
+    asking_price,
+    market_data=None
+):
     """
     Analyze asking price against the tool's used-market range.
 
-    Expected knowledge base format:
+    If valid market_data is provided, it takes priority
+    over the static Knowledge Base market range.
+
+    Expected Knowledge Base format:
 
     market:
         used_price_min
@@ -10,6 +17,16 @@ def analyze_price(tool_data, asking_price):
     """
 
     market = tool_data.get("market", {})
+
+    # Prefer dynamic market data when available.
+    if (
+        isinstance(market_data, dict)
+        and market_data.get("valid")
+    ):
+        market = {
+            "used_price_min": market_data.get("min_price"),
+            "used_price_max": market_data.get("max_price")
+        }
 
     low = market.get("used_price_min")
     high = market.get("used_price_max")
@@ -104,7 +121,7 @@ def analyze_price(tool_data, asking_price):
         status = "HIGH_PRICE"
 
         reasons.append(
-            "Price is near the upper end of the normal market range."
+            "Price is near the high end of the market range."
         )
 
     elif asking_price <= high * 1.10:
