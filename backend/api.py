@@ -40,6 +40,9 @@ divar_search_engine = DivarSearchEngine()
 ai_tool_resolver = AIToolResolver()
 ai_tool_discovery = AIToolDiscovery()
 
+_PREPARED_AD_CACHE = {}
+_PREPARED_AD_CACHE_TTL_SECONDS = 300
+
 
 def create_analysis_id():
     return str(uuid.uuid4())
@@ -47,6 +50,19 @@ def create_analysis_id():
 
 def create_timestamp():
     return datetime.now(timezone.utc).isoformat()
+
+
+def _get_cached_prepared_ad(url):
+    cached = _PREPARED_AD_CACHE.get(url)
+    if not cached:
+        return None
+
+    cached_at, ad = cached
+    if time.monotonic() - cached_at > _PREPARED_AD_CACHE_TTL_SECONDS:
+        _PREPARED_AD_CACHE.pop(url, None)
+        return None
+
+    return dict(ad)
 
 
 def prepare_ad(ad):
@@ -60,6 +76,10 @@ def prepare_ad(ad):
 
     if not url:
         return ad
+
+    cached_ad = _get_cached_prepared_ad(url)
+    if cached_ad is not None:
+        return cached_ad
 
     last_error = "Divar advertisement could not be fetched."
 
@@ -86,6 +106,10 @@ def prepare_ad(ad):
             collected_ad = None
 
         if isinstance(collected_ad, dict):
+            _PREPARED_AD_CACHE[url] = (
+                time.monotonic(),
+                dict(collected_ad)
+            )
             return collected_ad
 
         last_error = "Divar advertisement could not be collected."
