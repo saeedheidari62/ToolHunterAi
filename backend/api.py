@@ -1,5 +1,6 @@
 import json
 import uuid
+import time
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
@@ -60,31 +61,38 @@ def prepare_ad(ad):
     if not url:
         return ad
 
-    try:
-        fetched_ad = diwar_fetcher.fetch(url)
-    except Exception:
-        return {
-            "_prepare_error": "Divar advertisement could not be fetched."
-        }
+    last_error = "Divar advertisement could not be fetched."
 
-    if not isinstance(fetched_ad, dict):
-        return {
-            "_prepare_error": "Divar advertisement could not be fetched."
-        }
+    for attempt in range(3):
+        try:
+            fetched_ad = diwar_fetcher.fetch(url)
+        except Exception:
+            last_error = "Divar advertisement could not be fetched."
+            if attempt < 2:
+                time.sleep(0.5)
+                continue
+            return {"_prepare_error": last_error}
 
-    try:
-        collected_ad = diwar_collector.collect(fetched_ad)
-    except Exception:
-        return {
-            "_prepare_error": "Divar advertisement could not be collected."
-        }
+        if not isinstance(fetched_ad, dict):
+            last_error = "Divar advertisement could not be fetched."
+            if attempt < 2:
+                time.sleep(0.5)
+                continue
+            return {"_prepare_error": last_error}
 
-    if not isinstance(collected_ad, dict):
-        return {
-            "_prepare_error": "Divar advertisement could not be collected."
-        }
+        try:
+            collected_ad = diwar_collector.collect(fetched_ad)
+        except Exception:
+            collected_ad = None
 
-    return collected_ad
+        if isinstance(collected_ad, dict):
+            return collected_ad
+
+        last_error = "Divar advertisement could not be collected."
+        if attempt < 2:
+            time.sleep(0.5)
+
+    return {"_prepare_error": last_error}
 
 
 def get_dynamic_market_data(
