@@ -1,31 +1,12 @@
-def analyze_price(
-    tool_data,
-    asking_price,
-    market_data=None
-):
-    """
-    Analyze asking price against the tool's used-market range.
-
-    If valid market_data is provided, it takes priority
-    over the static Knowledge Base market range.
-
-    Expected Knowledge Base format:
-
-    market:
-        used_price_min
-        used_price_max
-    """
-
+def analyze_price(tool_data, asking_price, market_data=None):
+    """Analyze asking price against the best available market benchmark."""
     market = tool_data.get("market", {})
 
-    # Prefer dynamic market data only when confidence
-    # is strong enough to use it as a pricing benchmark.
     dynamic_confidence = (
         market_data.get("confidence")
         if isinstance(market_data, dict)
         else None
     )
-
     use_dynamic_market = (
         isinstance(market_data, dict)
         and market_data.get("valid")
@@ -35,8 +16,11 @@ def analyze_price(
     if use_dynamic_market:
         market = {
             "used_price_min": market_data.get("min_price"),
-            "used_price_max": market_data.get("max_price")
+            "used_price_max": market_data.get("max_price"),
         }
+        market_source = "dynamic"
+    else:
+        market_source = "knowledge_base"
 
     low = market.get("used_price_min")
     high = market.get("used_price_max")
@@ -45,41 +29,27 @@ def analyze_price(
         asking_price = float(asking_price)
         low = float(low)
         high = float(high)
-
     except (TypeError, ValueError):
         return {
             "price_score": 50,
             "price_status": "UNKNOWN",
-            "price_reason": [
-                "No valid market price data is available."
-            ],
-            "price_difference_percent": None
+            "price_reason": ["No valid market price data is available."],
+            "price_difference_percent": None,
+            "market_source": market_source,
         }
 
-    if (
-        asking_price <= 0
-        or low <= 0
-        or high <= 0
-        or low > high
-    ):
+    if asking_price <= 0 or low <= 0 or high <= 0 or low > high:
         return {
             "price_score": 50,
             "price_status": "UNKNOWN",
-            "price_reason": [
-                "Invalid market price data."
-            ],
-            "price_difference_percent": None
+            "price_reason": ["Invalid market price data."],
+            "price_difference_percent": None,
+            "market_source": market_source,
         }
 
-    # Prefer the dynamic market median when available.
-    # This is more robust than using (min + max) / 2
-    # when the market contains uneven prices or variants.
     market_reference = (
         market_data.get("median_price")
-        if (
-            use_dynamic_market
-            and market_data.get("median_price") is not None
-        )
+        if use_dynamic_market and market_data.get("median_price") is not None
         else (low + high) / 2
     )
 
@@ -92,106 +62,46 @@ def analyze_price(
         return {
             "price_score": 50,
             "price_status": "UNKNOWN",
-            "price_reason": [
-                "Invalid market reference price."
-            ],
-            "price_difference_percent": None
+            "price_reason": ["Invalid market reference price."],
+            "price_difference_percent": None,
+            "market_source": market_source,
         }
 
-    difference_percent = (
-        (asking_price - market_reference)
-        / market_reference
-    ) * 100
-
+    difference_percent = ((asking_price - market_reference) / market_reference) * 100
     reasons = []
 
-    if (
-        isinstance(market_data, dict)
-        and market_data.get("valid")
-        and dynamic_confidence == "LOW"
-    ):
-        reasons.append(
-            "Dynamic market data had LOW confidence, so the static market baseline was used."
-        )
+    if isinstance(market_data, dict) and market_data.get("valid") and dynamic_confidence == "LOW":
+        reasons.append("Dynamic market data had LOW confidence, so the static market baseline was used.")
 
     if asking_price < low * 0.90:
-
-        score = 80
-        status = "VERY_GOOD_PRICE"
-
-        reasons.append(
-            "The unusually low price should be verified carefully."
-        )
-
+        score, status = 80, "VERY_GOOD_PRICE"
+        reasons.append("The unusually low price should be verified carefully.")
     elif asking_price < low:
-
-        score = 92
-        status = "VERY_GOOD_PRICE"
-
-        reasons.append(
-            "Price is below the normal market range."
-        )
-
+        score, status = 92, "VERY_GOOD_PRICE"
+        reasons.append("Price is below the normal market range.")
     elif asking_price <= low + (market_reference - low) * 0.25:
-
-        score = 95
-        status = "VERY_GOOD_PRICE"
-
-        reasons.append(
-            "Price is near the low end of the market range."
-        )
-
+        score, status = 95, "VERY_GOOD_PRICE"
+        reasons.append("Price is near the low end of the market range.")
     elif asking_price <= market_reference:
-
-        score = 88
-        status = "GOOD_PRICE"
-
-        reasons.append(
-            "Price is below the market average."
-        )
-
+        score, status = 88, "GOOD_PRICE"
+        reasons.append("Price is below the market average.")
     elif asking_price < high - (high - market_reference) * 0.25:
-
-        score = 78
-        status = "FAIR_PRICE"
-
-        reasons.append(
-            "Price is above the market average but within a reasonable range."
-        )
-
+        score, status = 78, "FAIR_PRICE"
+        reasons.append("Price is above the market average but within a reasonable range.")
     elif asking_price <= high:
-
-        score = 65
-        status = "HIGH_PRICE"
-
-        reasons.append(
-            "Price is near the high end of the market range."
-        )
-
+        score, status = 65, "HIGH_PRICE"
+        reasons.append("Price is near the high end of the market range.")
     elif asking_price <= high * 1.10:
-
-        score = 45
-        status = "HIGH_PRICE"
-
-        reasons.append(
-            "Price is above the normal market range."
-        )
-
+        score, status = 45, "HIGH_PRICE"
+        reasons.append("Price is above the normal market range.")
     else:
-
-        score = 20
-        status = "VERY_HIGH_PRICE"
-
-        reasons.append(
-            "Price is significantly higher than the market range."
-        )
+        score, status = 20, "VERY_HIGH_PRICE"
+        reasons.append("Price is significantly higher than the market range.")
 
     return {
         "price_score": round(score),
         "price_status": status,
         "price_reason": reasons,
-        "price_difference_percent": round(
-            difference_percent,
-            2
-        )
+        "price_difference_percent": round(difference_percent, 2),
+        "market_source": market_source,
     }
