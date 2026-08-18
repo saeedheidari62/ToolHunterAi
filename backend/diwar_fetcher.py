@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 
 class DiwarFetcher:
 
+    def __init__(self):
+        self.last_response_diagnostics = {}
+
     def fetch(self, url):
         response = requests.get(
             url,
@@ -22,6 +25,13 @@ class DiwarFetcher:
             timeout=20,
             allow_redirects=True
         )
+
+        self.last_response_diagnostics = {
+            "status_code": response.status_code,
+            "content_type": response.headers.get("Content-Type", ""),
+            "response_length": len(response.text or ""),
+            "final_url": str(response.url),
+        }
 
         response.raise_for_status()
         html = response.text
@@ -91,6 +101,13 @@ class DiwarFetcher:
                     price = int(offer_match.group(1))
                 except (TypeError, ValueError):
                     price = 0
+
+        self.last_response_diagnostics.update({
+            "title_marker_found": bool(title),
+            "description_marker_found": bool(description),
+            "price_marker_found": bool(price),
+            "image_marker_count": len(image_urls),
+        })
 
         return {
             "url": url,
