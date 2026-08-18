@@ -19,7 +19,26 @@ class DivarSearchEngine:
             "Referer": "https://divar.ir/",
         }
 
-    def search(self, city, query):
+    def build_query(self, tool_name, variant=None):
+        base_query = str(tool_name or "").strip()
+
+        if not base_query:
+            return ""
+
+        if (
+            tool_name == "bosch_gbh_2_26"
+            and variant in {"DFR", "DRE"}
+        ):
+            return f"Bosch GBH 2-26 {variant}"
+
+        return base_query
+
+    def search(self, city, query, variant=None):
+        query = self.build_query(
+            query,
+            variant
+        )
+
         url = (
             f"https://divar.ir/s/{city}"
             f"?q={requests.utils.quote(query)}"
@@ -40,7 +59,7 @@ class DivarSearchEngine:
         )
 
 
-    def filter_results(self, results, tool_name):
+    def filter_results(self, results, tool_name, variant=None):
         if not tool_name:
             return results
 
@@ -68,17 +87,28 @@ class DivarSearchEngine:
                 .lower()
             )
 
-            if all(
+            if not all(
                 token in title
                 for token in model_tokens
             ):
-                filtered.append(item)
+                continue
 
-        filtered = [
-            item
-            for item in filtered
-            if item.get("price") is not None
-        ]
+            if variant in ("DFR", "DRE"):
+                variant_pattern = (
+                    rf"\bgbh[\s-]*2[\s-]*26[\s-]*"
+                    rf"{variant.lower()}\b"
+                )
+
+                if not re.search(
+                    variant_pattern,
+                    title
+                ):
+                    continue
+
+            if item.get("price") is None:
+                continue
+
+            filtered.append(item)
 
         return filtered
 

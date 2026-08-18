@@ -18,11 +18,21 @@ def analyze_price(
 
     market = tool_data.get("market", {})
 
-    # Prefer dynamic market data when available.
-    if (
+    # Prefer dynamic market data only when confidence
+    # is strong enough to use it as a pricing benchmark.
+    dynamic_confidence = (
+        market_data.get("confidence")
+        if isinstance(market_data, dict)
+        else None
+    )
+
+    use_dynamic_market = (
         isinstance(market_data, dict)
         and market_data.get("valid")
-    ):
+        and dynamic_confidence in ("HIGH", "MEDIUM")
+    )
+
+    if use_dynamic_market:
         market = {
             "used_price_min": market_data.get("min_price"),
             "used_price_max": market_data.get("max_price")
@@ -67,8 +77,7 @@ def analyze_price(
     market_reference = (
         market_data.get("median_price")
         if (
-            isinstance(market_data, dict)
-            and market_data.get("valid")
+            use_dynamic_market
             and market_data.get("median_price") is not None
         )
         else (low + high) / 2
@@ -95,6 +104,15 @@ def analyze_price(
     ) * 100
 
     reasons = []
+
+    if (
+        isinstance(market_data, dict)
+        and market_data.get("valid")
+        and dynamic_confidence == "LOW"
+    ):
+        reasons.append(
+            "Dynamic market data had LOW confidence, so the static market baseline was used."
+        )
 
     if asking_price < low * 0.90:
 

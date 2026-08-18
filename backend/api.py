@@ -10,6 +10,7 @@ from .diwar_fetcher import DiwarFetcher
 from .decision_engine import make_decision
 from .ad_analyzer import analyze_ad
 from .tool_matcher import ToolMatcher
+from .tool_variant_matcher import ToolVariantMatcher
 from .multi_tool_analyzer import MultiToolAnalyzer
 from .rank_engine import RankEngine
 from .decision_explainer import DecisionExplainer
@@ -27,6 +28,7 @@ collector = AdCollector()
 diwar_collector = DiwarCollector()
 diwar_fetcher = DiwarFetcher()
 matcher = ToolMatcher()
+variant_matcher = ToolVariantMatcher()
 multi_tool_analyzer = MultiToolAnalyzer()
 ranker = RankEngine()
 explainer = DecisionExplainer()
@@ -73,7 +75,8 @@ def prepare_ad(ad):
 
 def get_dynamic_market_data(
     tool_name,
-    city="tehran"
+    city="tehran",
+    variant=None
 ):
     """
     Search Divar for the tool and calculate
@@ -108,15 +111,17 @@ def get_dynamic_market_data(
     try:
         search_result = divar_search_engine.search(
             city_slug,
-            tool_name
+            tool_name,
+            variant=variant
         )
 
         filtered = divar_search_engine.filter_results(
             search_result.get("results", []),
-            tool_name
+            tool_name,
+            variant
         )
 
-        if len(filtered) < 2:
+        if not filtered:
             return None
 
         market_data = (
@@ -128,8 +133,24 @@ def get_dynamic_market_data(
         if not market_data.get("valid"):
             return None
 
-        if market_data.get("sample_count", 0) < 2:
+        sample_count = market_data.get(
+            "sample_count",
+            0
+        )
+
+        if sample_count >= 3:
+            market_data["confidence"] = "HIGH"
+
+        elif sample_count >= 2:
+            market_data["confidence"] = "MEDIUM"
+
+        elif sample_count == 1:
+            market_data["confidence"] = "LOW"
+
+        else:
             return None
+
+        market_data["variant"] = variant
 
         return market_data
 
@@ -227,11 +248,19 @@ def analyze_single_ad(ad):
 
     tool_id = tool_ids[0]
 
+    variant = variant_matcher.detect(
+        collected_ad["title"]
+        + " "
+        + collected_ad["description"],
+        tool_id
+    )
+
     ad_analysis = analyze_ad(collected_ad)
 
     market_data = get_dynamic_market_data(
         tool_id,
-        collected_ad.get("city", "tehran")
+        collected_ad.get("city", "tehran"),
+        variant
     )
 
     decision_data = {
@@ -262,6 +291,7 @@ def analyze_single_ad(ad):
 
     result["ad_score"] = ad_analysis["ad_score"]
     result["tool"] = tool_id
+    result["variant"] = variant
     result["title"] = collected_ad["title"]
     result["market_data"] = market_data
 

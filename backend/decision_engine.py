@@ -227,6 +227,7 @@ def make_decision(ad_data):
 
     return {
         "decision": decision,
+        "asking_price": asking_price,
         "buy_score": buy_score,
         "risk_score": risk_score,
         "ad_score": ad_score,
