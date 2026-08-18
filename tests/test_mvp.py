@@ -340,3 +340,36 @@ def test_incomplete_ad_returns_validation_error():
     assert "Description is required." in result["errors"], result
     assert "A valid price is required." in result["errors"], result
     assert "Seller type is required." in result["errors"], result
+
+
+def test_ai_tool_resolver_fallback(monkeypatch):
+    from backend import api
+
+    monkeypatch.setattr(
+        api.ai_tool_resolver,
+        "resolve",
+        lambda text: {
+            "tool_id": "bosch_gbh_2_26",
+            "confidence": 0.96,
+            "evidence": ["GBH 2-26 model identified from marketplace text"]
+        }
+    )
+    monkeypatch.setattr(
+        api,
+        "get_dynamic_market_data",
+        lambda *_args, **_kwargs: None
+    )
+
+    result = analyze_single_ad({
+        "title": "دریل بتن کن بوش مدل بیست و شش",
+        "description": "GBH 2-26 سالم با امکان تست",
+        "price": 8500000,
+        "seller_type": "personal",
+        "testing": True,
+        "warranty": False,
+        "condition": "used"
+    })
+
+    assert result["tool"] == "bosch_gbh_2_26", result
+    assert result["ai_tool_resolution"]["confidence"] == 0.96, result
+    assert result["ai_tool_resolution"]["evidence"], result
