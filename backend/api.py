@@ -56,14 +56,24 @@ def prepare_ad(ad):
     if not url:
         return ad
 
-    fetched_ad = diwar_fetcher.fetch(url)
+    try:
+        fetched_ad = diwar_fetcher.fetch(url)
+    except Exception:
+        return {
+            "_prepare_error": "Divar advertisement could not be fetched."
+        }
 
     if not isinstance(fetched_ad, dict):
         return {
             "_prepare_error": "Divar advertisement could not be fetched."
         }
 
-    collected_ad = diwar_collector.collect(fetched_ad)
+    try:
+        collected_ad = diwar_collector.collect(fetched_ad)
+    except Exception:
+        return {
+            "_prepare_error": "Divar advertisement could not be collected."
+        }
 
     if not isinstance(collected_ad, dict):
         return {
@@ -160,6 +170,11 @@ def get_dynamic_market_data(
 
 def analyze_single_ad(ad):
     ad = prepare_ad(ad)
+
+    if isinstance(ad, dict) and ad.get("_prepare_error"):
+        return {
+            "error": ad["_prepare_error"]
+        }
 
     normalized = normalizer.normalize(ad)
 
