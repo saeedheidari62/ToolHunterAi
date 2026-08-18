@@ -67,7 +67,7 @@ def test_variant_detection():
 
     assert matcher.detect("Bosch GBH 2-26 DRE Professional", tool_id) == "DRE"
     assert matcher.detect("بتن کن بوش GBH 2-26 DFR", tool_id) == "DFR"
-    assert matcher.detect("دریل بوش GBH 2-26 در حد نو", tool_id) is None
+    assert matcher.detect("دریل بوش GBH 2-26 در حد نو", tool_id) == "BASE"
     print("PASS: variant detection")
 
 
