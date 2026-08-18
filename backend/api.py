@@ -154,7 +154,19 @@ def analyze_single_ad(ad):
     if not normalized["valid"]:
         return {"error": "Invalid advertisement data.", "errors": normalized["errors"]}
     ad = normalized["ad"]
-    collected_ad = collector.collect(title=ad["title"], description=ad["description"], price=ad["price"], seller_type=ad["seller_type"], testing=ad.get("testing", False), warranty=ad.get("warranty", False), condition=ad.get("condition", "used"))
+    collected_ad = collector.collect(
+        title=ad["title"],
+        description=ad["description"],
+        price=ad["price"],
+        seller_type=ad["seller_type"],
+        testing=ad.get("testing", False),
+        warranty=ad.get("warranty", False),
+        condition=ad.get("condition", "used"),
+        **{key: ad.get(key) for key in (
+            "url", "city", "district", "brand_model", "category",
+            "image_count", "image_urls", "image_file"
+        ) if key in ad}
+    )
     match_text = collected_ad["title"] + " " + collected_ad["description"] + " " + collected_ad.get("brand_model", "")
     tool_ids = matcher.match_all(match_text)
     ai_resolution = None
