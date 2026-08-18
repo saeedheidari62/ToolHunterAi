@@ -158,3 +158,28 @@ def test_ai_tool_discovery_candidate(monkeypatch):
     assert candidate["model"] == "8281D", result
     assert candidate["variant"] == "WAE", result
     assert candidate["confidence"] >= 0.80, result
+
+
+def test_divar_url_flows_through_fetch_and_collection(monkeypatch):
+    from backend import api
+
+    fetched = {
+        "title": "Bosch GBH 2-26 DRE Professional",
+        "description": "دریل بتن کن بوش GBH 2-26 DRE سالم با امکان تست",
+        "price": 14900000,
+        "seller_type": "personal",
+        "testing": True,
+        "warranty": False,
+        "condition": "used",
+        "image_urls": [],
+        "image_count": 0,
+    }
+
+    monkeypatch.setattr(api.diwar_fetcher, "fetch", lambda _: fetched)
+    monkeypatch.setattr(api, "get_dynamic_market_data", lambda *_args, **_kwargs: None)
+
+    result = analyze_single_ad({"url": "https://divar.ir/v/gaEqRpBY"})
+
+    assert result.get("error") is None, result
+    assert result["tool"] == "bosch_gbh_2_26", result
+    assert result["variant"] == "DRE", result
