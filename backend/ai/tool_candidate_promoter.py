@@ -19,6 +19,46 @@ class ToolCandidatePromoter:
         value = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_")
         return value.lower()
 
+    def _build_default_knowledge(self, candidate):
+        brand = str(candidate.get("brand", "")).strip()
+        model = str(candidate.get("model", "")).strip()
+        variant = str(candidate.get("variant", "")).strip()
+        confidence = float(candidate.get("confidence", 0))
+        evidence = candidate.get("evidence", [])
+        market_sample_count = int(candidate.get("market_sample_count", 0))
+        market_data = candidate.get("market_data")
+        if not isinstance(market_data, dict):
+            market_data = {}
+
+        market = {
+            "new_price": None,
+            "used_price_min": market_data.get("used_price_min"),
+            "used_price_max": market_data.get("used_price_max"),
+            "median_price": market_data.get("median_price"),
+            "sample_count": market_data.get("sample_count", market_sample_count),
+            "price_confidence": market_data.get("price_confidence", "MEDIUM"),
+            "sources": market_data.get("sources", ["divar"]),
+        }
+
+        return {
+            "tool_name": f"{brand} {model}".strip(),
+            "brand": brand,
+            "technical": {"score": 0},
+            "brand_info": {"score": 0},
+            "market": market,
+            "common_failures": [],
+            "inspection": [],
+            "risk": {"score": 50, "level": "Medium"},
+            "buy_score": 50,
+            "recommendation": "REVIEW",
+            "discovery": {
+                "variant": variant,
+                "confidence": confidence,
+                "evidence": evidence,
+                "market_sample_count": market_sample_count,
+            },
+        }
+
     def promote(self, candidate, knowledge=None):
         if not isinstance(candidate, dict) or candidate.get("status") != "VALIDATED":
             return {"status": "REJECTED", "reason": "Candidate is not validated."}
@@ -53,28 +93,7 @@ class ToolCandidatePromoter:
         if tool_path.exists():
             return {"status": "EXISTS", "tool_id": tool_id, "file": filename}
 
-        data = knowledge if isinstance(knowledge, dict) else {
-            "tool_name": f"{brand} {model}".strip(),
-            "brand": brand,
-            "technical": {"score": 0},
-            "brand_info": {"score": 0},
-            "market": {
-                "new_price": None,
-                "used_price_min": None,
-                "used_price_max": None,
-            },
-            "common_failures": [],
-            "inspection": [],
-            "risk": {"score": 50, "level": "Medium"},
-            "buy_score": 50,
-            "recommendation": "REVIEW",
-            "discovery": {
-                "variant": variant,
-                "confidence": confidence,
-                "evidence": evidence,
-                "market_sample_count": market_sample_count,
-            },
-        }
+        data = knowledge if isinstance(knowledge, dict) else self._build_default_knowledge(candidate)
 
         with tool_path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, ensure_ascii=False, indent=2)
@@ -101,4 +120,5 @@ class ToolCandidatePromoter:
             "status": "PROMOTED",
             "tool_id": tool_id,
             "file": filename,
+            "market_sample_count": market_sample_count,
         }
