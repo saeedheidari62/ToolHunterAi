@@ -10,6 +10,14 @@ def validated_candidate(**overrides):
         "confidence": 0.94,
         "evidence": ["market listing 1", "market listing 2"],
         "market_sample_count": 2,
+        "market_data": {
+            "used_price_min": 8000000,
+            "used_price_max": 10000000,
+            "median_price": 9000000,
+            "sample_count": 2,
+            "price_confidence": 0.2,
+            "sources": ["divar"],
+        },
     }
     candidate.update(overrides)
     return candidate
@@ -39,6 +47,12 @@ def test_rejects_candidate_without_evidence(tmp_path):
     assert result["status"] == "REJECTED"
 
 
+def test_rejects_candidate_without_validated_market_data(tmp_path):
+    promoter = ToolCandidatePromoter(tmp_path / "tools")
+    result = promoter.promote(validated_candidate(market_data=None))
+    assert result["status"] == "REJECTED"
+
+
 def test_promotes_validated_candidate_and_updates_index(tmp_path):
     tools_dir = tmp_path / "tools"
     tools_dir.mkdir()
@@ -52,6 +66,13 @@ def test_promotes_validated_candidate_and_updates_index(tmp_path):
     assert (tools_dir / "makita_8281d_wae.json").exists()
     index = (tools_dir / "tools_index.json").read_text(encoding="utf-8")
     assert "makita_8281d_wae" in index
+
+    import json
+    saved = json.loads((tools_dir / "makita_8281d_wae.json").read_text(encoding="utf-8"))
+    assert saved["aliases"]
+    assert "confidence" in saved
+    assert "sources" in saved
+    assert "evidence" in saved
 
 
 def test_does_not_overwrite_existing_tool(tmp_path):
