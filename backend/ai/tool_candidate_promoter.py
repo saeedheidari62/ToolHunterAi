@@ -13,9 +13,7 @@ class ToolCandidatePromoter:
         self.min_confidence = float(min_confidence)
 
     def _slug(self, brand, model, variant=""):
-        value = "_".join(
-            part for part in [brand, model, variant] if str(part).strip()
-        )
+        value = "_".join(part for part in [brand, model, variant] if str(part).strip())
         value = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_")
         return value.lower()
 
@@ -30,32 +28,38 @@ class ToolCandidatePromoter:
         if not isinstance(market_data, dict):
             market_data = {}
 
-        market = {
-            "new_price": None,
-            "used_price_min": market_data.get("used_price_min"),
-            "used_price_max": market_data.get("used_price_max"),
-            "median_price": market_data.get("median_price"),
-            "sample_count": market_data.get("sample_count", market_sample_count),
-            "price_confidence": market_data.get("price_confidence", "MEDIUM"),
-            "sources": market_data.get("sources", ["divar"]),
-        }
+        technical_data = candidate.get("technical_data")
+        if not isinstance(technical_data, dict):
+            technical_data = candidate.get("technical")
+        if not isinstance(technical_data, dict):
+            technical_data = {}
 
         return {
             "tool_name": f"{brand} {model}".strip(),
             "brand": brand,
-            "technical": {"score": 0},
+            "technical": technical_data,
             "brand_info": {"score": 0},
-            "market": market,
-            "common_failures": [],
-            "inspection": [],
-            "risk": {"score": 50, "level": "Medium"},
-            "buy_score": 50,
-            "recommendation": "REVIEW",
+            "market": {
+                "new_price": market_data.get("new_price"),
+                "used_price_min": market_data.get("used_price_min"),
+                "used_price_max": market_data.get("used_price_max"),
+                "median_price": market_data.get("median_price"),
+                "sample_count": market_data.get("sample_count", market_sample_count),
+                "price_confidence": market_data.get("price_confidence", "MEDIUM"),
+                "sources": market_data.get("sources", ["divar"]),
+                "last_updated": market_data.get("last_updated"),
+            },
+            "common_failures": candidate.get("common_failures", []),
+            "inspection": candidate.get("inspection", []),
+            "risk": candidate.get("risk", {"score": 50, "level": "Medium"}),
+            "buy_score": candidate.get("buy_score", 50),
+            "recommendation": candidate.get("recommendation", "REVIEW"),
             "discovery": {
                 "variant": variant,
                 "confidence": confidence,
                 "evidence": evidence,
                 "market_sample_count": market_sample_count,
+                "technical_sources": candidate.get("technical_sources", []),
             },
         }
 
