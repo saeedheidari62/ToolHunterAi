@@ -81,28 +81,66 @@ def prepare_ad(ad):
     if cached_ad is not None:
         return cached_ad
 
-    last_error = "Divar advertisement could not be fetched."
+    diagnostics = {
+        "url": url,
+        "fetch_attempts": 0,
+        "last_stage": "fetch",
+        "title_found": False,
+        "description_found": False,
+        "price_found": False,
+        "image_count": 0,
+    }
 
     for attempt in range(3):
+        diagnostics["fetch_attempts"] = attempt + 1
+
         try:
             fetched_ad = diwar_fetcher.fetch(url)
-        except Exception:
-            last_error = "Divar advertisement could not be fetched."
+        except Exception as exc:
+            diagnostics["last_stage"] = "fetch"
+            diagnostics["fetch_exception"] = type(exc).__name__
             if attempt < 2:
                 time.sleep(0.5)
                 continue
-            return {"_prepare_error": last_error}
+            return {
+                "_prepare_error": "FETCH_FAILED",
+                "_prepare_diagnostics": diagnostics
+            }
 
         if not isinstance(fetched_ad, dict):
-            last_error = "Divar advertisement could not be fetched."
+            diagnostics["last_stage"] = "fetch"
             if attempt < 2:
                 time.sleep(0.5)
                 continue
-            return {"_prepare_error": last_error}
+            return {
+                "_prepare_error": "FETCH_FAILED",
+                "_prepare_diagnostics": diagnostics
+            }
+
+        diagnostics["title_found"] = bool(
+            str(fetched_ad.get("title", "")).strip()
+        )
+        diagnostics["description_found"] = bool(
+            str(fetched_ad.get("description", "")).strip()
+        )
+        diagnostics["price_found"] = bool(fetched_ad.get("price", 0))
+        diagnostics["image_count"] = fetched_ad.get("image_count", 0)
+
+        if not diagnostics["title_found"]:
+            diagnostics["last_stage"] = "fetch"
+            if attempt < 2:
+                time.sleep(0.5)
+                continue
+            return {
+                "_prepare_error": "FETCH_INCOMPLETE",
+                "_prepare_diagnostics": diagnostics
+            }
 
         try:
+            diagnostics["last_stage"] = "collect"
             collected_ad = diwar_collector.collect(fetched_ad)
-        except Exception:
+        except Exception as exc:
+            diagnostics["collection_exception"] = type(exc).__name__
             collected_ad = None
 
         if isinstance(collected_ad, dict):
@@ -112,11 +150,20 @@ def prepare_ad(ad):
             )
             return collected_ad
 
-        last_error = "Divar advertisement could not be collected."
+        diagnostics["last_stage"] = "collect"
         if attempt < 2:
             time.sleep(0.5)
+            continue
 
-    return {"_prepare_error": last_error}
+        return {
+            "_prepare_error": "COLLECTION_FAILED",
+            "_prepare_diagnostics": diagnostics
+        }
+
+    return {
+        "_prepare_error": "FETCH_FAILED",
+        "_prepare_diagnostics": diagnostics
+    }
 
 
 def get_dynamic_market_data(
@@ -191,7 +238,8 @@ def analyze_single_ad(ad):
 
     if isinstance(ad, dict) and ad.get("_prepare_error"):
         return {
-            "error": ad["_prepare_error"]
+            "error": ad["_prepare_error"],
+            "diagnostics": ad.get("_prepare_diagnostics", {})
         }
 
     normalized = normalizer.normalize(ad)
@@ -362,20 +410,7 @@ def analyze():
     errors = []
 
     for index, ad in enumerate(ads):
-        if isinstance(ad, dict) and "url" in ad:
-            prepared_ad = prepare_ad(ad)
-
-            if not isinstance(prepared_ad, dict):
-                result = {
-                    "error": "Invalid advertisement data.",
-                    "errors": [
-                        "Divar advertisement could not be collected."
-                    ]
-                }
-            else:
-                result = analyze_single_ad(prepared_ad)
-        else:
-            result = analyze_single_ad(ad)
+        result = analyze_single_ad(ad)
 
         if "error" in result:
             errors.append({
