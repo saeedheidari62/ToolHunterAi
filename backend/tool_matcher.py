@@ -12,13 +12,28 @@ class ToolMatcher:
             / "tools"
             / "tools_index.json"
         )
+        self._index_mtime = None
         self.reload()
 
     def reload(self):
         with open(self._index_path, "r", encoding="utf-8") as file:
             data = json.load(file)
         self.tools = data.get("tools", [])
+        try:
+            self._index_mtime = self._index_path.stat().st_mtime_ns
+        except OSError:
+            self._index_mtime = None
         return len(self.tools)
+
+    def reload_if_changed(self):
+        try:
+            current_mtime = self._index_path.stat().st_mtime_ns
+        except OSError:
+            return False
+        if self._index_mtime != current_mtime:
+            self.reload()
+            return True
+        return False
 
     def normalize(self, text):
         text = str(text or "").lower()
@@ -29,6 +44,7 @@ class ToolMatcher:
         return text.strip()
 
     def match_all(self, text):
+        self.reload_if_changed()
         text = self.normalize(text)
         matches = []
         for tool in self.tools:
