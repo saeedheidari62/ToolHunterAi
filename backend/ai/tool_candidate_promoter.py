@@ -10,8 +10,10 @@ from backend.tool_knowledge_builder import ToolKnowledgeBuilder
 class ToolCandidatePromoter:
     """Promote only validated, evidence-backed candidates into the Knowledge Base."""
 
-    def __init__(self, knowledge_dir="knowledge_base/tools", min_samples=2, min_confidence=0.80):
-        self.knowledge_dir = Path(knowledge_dir)
+    def __init__(self, knowledge_dir=None, min_samples=2, min_confidence=0.80):
+        project_root = Path(__file__).resolve().parents[2]
+        default_dir = project_root / "knowledge_base" / "tools"
+        self.knowledge_dir = Path(knowledge_dir) if knowledge_dir else default_dir
         self.index_path = self.knowledge_dir / "tools_index.json"
         self.min_samples = int(min_samples)
         self.min_confidence = float(min_confidence)
@@ -31,19 +33,22 @@ class ToolCandidatePromoter:
         confidence = float(candidate.get("confidence", 0))
         evidence = candidate.get("evidence", [])
         market_sample_count = int(candidate.get("market_sample_count", 0))
-        market_data = candidate.get("market_data")
-        if not isinstance(market_data, dict):
-            market_data = {}
+        market_data = candidate.get("market_data") if isinstance(candidate.get("market_data"), dict) else {}
 
-        technical_result = self.technical_collector.collect(candidate=candidate, description=candidate.get("description", ""), sources=candidate.get("technical_sources", []))
+        technical_result = self.technical_collector.collect(
+            candidate=candidate,
+            description=candidate.get("description", ""),
+            sources=candidate.get("technical_sources", []),
+        )
         technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
         technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
         sources = list(dict.fromkeys([
             *(["divar"] if market_data else []),
             *technical_sources,
-            *(str(item).strip() for item in evidence if str(item).strip()) if isinstance(evidence, list) else [],
+            *([str(item).strip() for item in evidence if str(item).strip()] if isinstance(evidence, list) else []),
         ]))
 
+        market_status = "available" if market_data else "unavailable"
         return {
             "tool_name": f"{brand} {model}".strip(),
             "category": candidate.get("category", "toolbox"),
@@ -58,8 +63,8 @@ class ToolCandidatePromoter:
                 "median_price": market_data.get("median_price"),
                 "sample_count": market_data.get("sample_count", market_sample_count),
                 "price_confidence": market_data.get("price_confidence", 0.0),
-                "sources": market_data.get("sources", ["divar"]),
-                "status": "available",
+                "sources": market_data.get("sources", ["divar"] if market_data else []),
+                "status": market_status,
                 "last_updated": market_data.get("last_updated"),
             },
             "common_failures": candidate.get("common_failures", []),
