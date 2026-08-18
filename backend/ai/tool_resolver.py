@@ -5,11 +5,7 @@ from urllib import request
 
 
 class AIToolResolver:
-    """Optional AI fallback for ambiguous or unrecognized tool text.
-
-    Deterministic matching remains the primary path. This resolver is only
-    called when the normal ToolMatcher finds no supported tool.
-    """
+    """Optional AI fallback for ambiguous or unrecognized tool text."""
 
     def __init__(self, api_key=None, model=None, min_confidence=0.85):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -53,7 +49,7 @@ class AIToolResolver:
                     "content": (
                         "You identify industrial power tools from marketplace text. "
                         "Only choose a tool from the supplied catalog. Never invent a tool ID. "
-                        "If evidence is insufficient, return null candidate_tool_id. "
+                        "If evidence is insufficient, return an empty candidate_tool_id. "
                         "Confidence must represent evidence strength, not certainty from guessing."
                     ),
                 },
@@ -76,9 +72,7 @@ class AIToolResolver:
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "candidate_tool_id": {
-                                "type": ["string", "null"]
-                            },
+                            "candidate_tool_id": {"type": "string"},
                             "confidence": {
                                 "type": "number",
                                 "minimum": 0,
@@ -121,11 +115,11 @@ class AIToolResolver:
         if not result:
             return None
 
-        candidate = result.get("candidate_tool_id")
+        candidate = result.get("candidate_tool_id", "")
         confidence = result.get("confidence", 0)
 
         known_ids = {tool.get("id") for tool in self.tools}
-        if candidate not in known_ids or confidence < self.min_confidence:
+        if not candidate or candidate not in known_ids or confidence < self.min_confidence:
             return None
 
         return {
