@@ -220,3 +220,82 @@ def test_decision_boundaries(monkeypatch):
     )
     result = decision_engine.make_decision(reject_data)
     assert result["decision"] == "DON'T BUY", result
+
+
+def test_end_to_end_dre_dynamic_market(monkeypatch):
+    from backend import api
+
+    monkeypatch.setattr(
+        api,
+        "get_dynamic_market_data",
+        lambda *_args, **_kwargs: {
+            "valid": True,
+            "sample_count": 2,
+            "min_price": 12000000.0,
+            "max_price": 14900000.0,
+            "median_price": 13450000.0,
+            "confidence": "MEDIUM",
+            "variant": "DRE"
+        }
+    )
+
+    result = analyze_single_ad({
+        "title": "دریل بتن‌کن بوش آلمانی GBH 2-26 DRE Professional",
+        "description": "دریل بتن کن بوش GBH 2-26 DRE در حد نو",
+        "price": 14900000,
+        "seller_type": "shop",
+        "testing": True,
+        "warranty": False,
+        "condition": "used"
+    })
+
+    assert result["tool"] == "bosch_gbh_2_26", result
+    assert result["variant"] == "DRE", result
+    assert result["market_data"]["confidence"] == "MEDIUM", result
+    assert result["market_data"]["median_price"] == 13450000.0, result
+    assert result["price_status"] == "HIGH_PRICE", result
+    assert result["price_difference_percent"] == 10.78, result
+    assert result["decision"] in {"BUY", "REVIEW", "DON'T BUY"}, result
+    assert result.get("decision_reason"), result
+    assert result.get("next_action"), result
+
+
+def test_end_to_end_dfr_low_confidence_fallback(monkeypatch):
+    from backend import api
+
+    monkeypatch.setattr(
+        api,
+        "get_dynamic_market_data",
+        lambda *_args, **_kwargs: {
+            "valid": True,
+            "sample_count": 1,
+            "min_price": 27500000.0,
+            "max_price": 27500000.0,
+            "median_price": 27500000.0,
+            "confidence": "LOW",
+            "variant": "DFR"
+        }
+    )
+
+    result = analyze_single_ad({
+        "title": "بتن کن بوش GBH 2-26 DFR",
+        "description": "بتن کن بوش GBH 2-26 DFR سالم",
+        "price": 27500000,
+        "seller_type": "personal",
+        "testing": False,
+        "warranty": False,
+        "condition": "used"
+    })
+
+    assert result["tool"] == "bosch_gbh_2_26", result
+    assert result["variant"] == "DFR", result
+    assert result["market_data"]["confidence"] == "LOW", result
+    assert result["price_status"] == "VERY_HIGH_PRICE", result
+    assert result["price_difference_percent"] == 214.29, result
+    assert result["decision"] == "REVIEW", result
+    assert any(
+        "LOW confidence" in reason
+        for reason in result.get("reasons", [])
+    ), result
+    assert result.get("decision_reason"), result
+    assert result.get("next_action"), result
