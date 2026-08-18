@@ -299,3 +299,44 @@ def test_end_to_end_dfr_low_confidence_fallback(monkeypatch):
     ), result
     assert result.get("decision_reason"), result
     assert result.get("next_action"), result
+
+
+def test_invalid_divar_url_does_not_crash(monkeypatch):
+    from backend import api
+
+    def fail_fetch(_):
+        raise RuntimeError("fetch failed")
+
+    monkeypatch.setattr(api.diwar_fetcher, "fetch", fail_fetch)
+
+    result = analyze_single_ad({
+        "url": "https://divar.ir/v/INVALID_TEST_URL"
+    })
+
+    assert result == {
+        "error": "Divar advertisement could not be fetched."
+    }, result
+
+
+def test_unknown_tool_returns_structured_error():
+    result = analyze_single_ad({
+        "title": "Makita SuperTool XYZ 9999",
+        "description": "ابزار ناشناخته تست",
+        "price": 1000000,
+        "seller_type": "personal",
+        "condition": "used"
+    })
+
+    assert result["error"] == "Tool not recognized.", result
+    assert result["matched_tools"] == [], result
+
+
+def test_incomplete_ad_returns_validation_error():
+    result = analyze_single_ad({
+        "title": "Bosch GBH 2-26"
+    })
+
+    assert result["error"] == "Invalid advertisement data.", result
+    assert "Description is required." in result["errors"], result
+    assert "A valid price is required." in result["errors"], result
+    assert "Seller type is required." in result["errors"], result
