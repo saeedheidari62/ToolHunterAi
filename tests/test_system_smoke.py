@@ -1,4 +1,5 @@
 import importlib
+import json
 from pathlib import Path
 
 
@@ -36,13 +37,30 @@ def test_all_knowledge_base_tools_are_json_objects():
 
     assert tool_files
 
-    import json
-
     for path in tool_files:
         data = json.loads(path.read_text(encoding="utf-8"))
         assert isinstance(data, dict), path.name
         assert data.get("id"), path.name
         assert data.get("name"), path.name
+
+
+def test_tools_index_points_to_existing_unique_tool_files():
+    tools_dir = Path(__file__).resolve().parents[1] / "knowledge_base" / "tools"
+    index = json.loads((tools_dir / "tools_index.json").read_text(encoding="utf-8"))
+    entries = index.get("tools", [])
+
+    ids = [entry.get("id") for entry in entries]
+    assert all(ids)
+    assert len(ids) == len(set(ids))
+
+    files = []
+    for entry in entries:
+        filename = entry.get("file")
+        assert filename
+        assert (tools_dir / filename).is_file(), filename
+        files.append(filename)
+
+    assert len(files) == len(set(files))
 
 
 def test_main_workflow_does_not_require_openai_key(monkeypatch):
