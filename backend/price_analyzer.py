@@ -1,6 +1,6 @@
 def analyze_price(tool_data, asking_price):
     """
-    Analyze asking price against the tool's market price range.
+    Analyze asking price against the tool's used-market range.
 
     Expected knowledge base format:
 
@@ -53,29 +53,33 @@ def analyze_price(tool_data, asking_price):
 
     reasons = []
 
-    # More than 10% below minimum:
-    # attractive but potentially suspicious.
     if asking_price < low * 0.90:
 
         score = 80
         status = "VERY_GOOD_PRICE"
 
-
         reasons.append(
             "The unusually low price should be verified carefully."
         )
 
-    # Between 90% of minimum and minimum.
-    elif asking_price <= low:
+    elif asking_price < low:
+
+        score = 92
+        status = "VERY_GOOD_PRICE"
+
+        reasons.append(
+            "Price is below the normal market range."
+        )
+
+    elif asking_price <= low + (average - low) * 0.25:
 
         score = 95
         status = "VERY_GOOD_PRICE"
 
         reasons.append(
-            "Price is at the low end of the market range."
+            "Price is near the low end of the market range."
         )
 
-    # Below market average.
     elif asking_price <= average:
 
         score = 88
@@ -85,17 +89,24 @@ def analyze_price(tool_data, asking_price):
             "Price is below the market average."
         )
 
-    # Above average but still inside normal range.
-    elif asking_price <= high:
+    elif asking_price < high - (high - average) * 0.25:
 
-        score = 72
+        score = 78
         status = "FAIR_PRICE"
 
         reasons.append(
-            "Price is within the normal market range."
+            "Price is above the market average but within a reasonable range."
         )
 
-    # Up to 10% above maximum.
+    elif asking_price <= high:
+
+        score = 65
+        status = "HIGH_PRICE"
+
+        reasons.append(
+            "Price is near the upper end of the normal market range."
+        )
+
     elif asking_price <= high * 1.10:
 
         score = 45
@@ -105,7 +116,6 @@ def analyze_price(tool_data, asking_price):
             "Price is above the normal market range."
         )
 
-    # More than 10% above maximum.
     else:
 
         score = 20
