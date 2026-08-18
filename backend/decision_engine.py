@@ -100,9 +100,14 @@ def make_decision(ad_data):
 
     asking_price = ad_data.get("asking_price", 0)
 
+    market_data = ad_data.get(
+        "market_data"
+    )
+
     price_result = analyze_price(
         tool,
-        asking_price
+        asking_price,
+        market_data=market_data
     )
 
     price_status = price_result["price_status"]

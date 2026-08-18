@@ -61,11 +61,37 @@ def analyze_price(
             "price_difference_percent": None
         }
 
-    average = (low + high) / 2
+    # Prefer the dynamic market median when available.
+    # This is more robust than using (min + max) / 2
+    # when the market contains uneven prices or variants.
+    market_reference = (
+        market_data.get("median_price")
+        if (
+            isinstance(market_data, dict)
+            and market_data.get("valid")
+            and market_data.get("median_price") is not None
+        )
+        else (low + high) / 2
+    )
+
+    try:
+        market_reference = float(market_reference)
+    except (TypeError, ValueError):
+        market_reference = (low + high) / 2
+
+    if market_reference <= 0:
+        return {
+            "price_score": 50,
+            "price_status": "UNKNOWN",
+            "price_reason": [
+                "Invalid market reference price."
+            ],
+            "price_difference_percent": None
+        }
 
     difference_percent = (
-        (asking_price - average)
-        / average
+        (asking_price - market_reference)
+        / market_reference
     ) * 100
 
     reasons = []
@@ -88,7 +114,7 @@ def analyze_price(
             "Price is below the normal market range."
         )
 
-    elif asking_price <= low + (average - low) * 0.25:
+    elif asking_price <= low + (market_reference - low) * 0.25:
 
         score = 95
         status = "VERY_GOOD_PRICE"
@@ -97,7 +123,7 @@ def analyze_price(
             "Price is near the low end of the market range."
         )
 
-    elif asking_price <= average:
+    elif asking_price <= market_reference:
 
         score = 88
         status = "GOOD_PRICE"
@@ -106,7 +132,7 @@ def analyze_price(
             "Price is below the market average."
         )
 
-    elif asking_price < high - (high - average) * 0.25:
+    elif asking_price < high - (high - market_reference) * 0.25:
 
         score = 78
         status = "FAIR_PRICE"

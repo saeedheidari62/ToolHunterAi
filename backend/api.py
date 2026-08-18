@@ -19,6 +19,7 @@ from .history_manager import (
     get_history_by_id
 )
 from .ad_normalizer import AdNormalizer
+from .divar_search_engine import DivarSearchEngine
 
 app = Flask(__name__)
 
@@ -30,6 +31,7 @@ multi_tool_analyzer = MultiToolAnalyzer()
 ranker = RankEngine()
 explainer = DecisionExplainer()
 normalizer = AdNormalizer()
+divar_search_engine = DivarSearchEngine()
 
 
 def create_analysis_id():
@@ -67,6 +69,72 @@ def prepare_ad(ad):
         }
 
     return collected_ad
+
+
+def get_dynamic_market_data(
+    tool_name,
+    city="tehran"
+):
+    """
+    Search Divar for the tool and calculate
+    a dynamic market price snapshot.
+
+    If dynamic search fails or produces insufficient
+    data, return None so the static Knowledge Base
+    remains the fallback.
+    """
+
+    city_map = {
+        "تهران": "tehran",
+        "teران": "tehran",
+        "tehran": "tehran",
+        "کرج": "karaj",
+        "karaj": "karaj",
+        "مشهد": "mashhad",
+        "mashhad": "mashhad",
+        "اصفهان": "isfahan",
+        "isfahan": "isfahan",
+        "شیراز": "shiraz",
+        "shiraz": "shiraz",
+        "تبریز": "tabriz",
+        "tabriz": "tabriz",
+    }
+
+    city_slug = city_map.get(
+        str(city or "").strip().lower(),
+        "tehran"
+    )
+
+    try:
+        search_result = divar_search_engine.search(
+            city_slug,
+            tool_name
+        )
+
+        filtered = divar_search_engine.filter_results(
+            search_result.get("results", []),
+            tool_name
+        )
+
+        if len(filtered) < 2:
+            return None
+
+        market_data = (
+            divar_search_engine.get_market_prices({
+                "results": filtered
+            })
+        )
+
+        if not market_data.get("valid"):
+            return None
+
+        if market_data.get("sample_count", 0) < 2:
+            return None
+
+        return market_data
+
+    except Exception:
+        return None
 
 
 def analyze_single_ad(ad):
@@ -161,9 +229,15 @@ def analyze_single_ad(ad):
 
     ad_analysis = analyze_ad(collected_ad)
 
+    market_data = get_dynamic_market_data(
+        tool_id,
+        collected_ad.get("city", "tehran")
+    )
+
     decision_data = {
         "tool_name": tool_id,
         "asking_price": collected_ad["price"],
+        "market_data": market_data,
         "has_test": collected_ad["has_test"],
         "has_warranty": collected_ad["has_warranty"],
         "description": collected_ad["description"],
@@ -189,6 +263,7 @@ def analyze_single_ad(ad):
     result["ad_score"] = ad_analysis["ad_score"]
     result["tool"] = tool_id
     result["title"] = collected_ad["title"]
+    result["market_data"] = market_data
 
     return result
 

@@ -34,12 +34,31 @@ class DiwarFetcher:
 
         state = self._extract_state(html)
 
-        title = soup.find("h1")
+        title = ""
 
-        title = (
-            title.get_text(" ", strip=True)
-            if title else ""
+        product_match = re.search(
+            r'"city_persian"\s*:\s*"[^"]*"'
+            r'.{0,500}?'
+            r'"name"\s*:\s*"([^"]+)"'
+            r'.{0,300}?'
+            r'"offers"\s*:',
+            html
         )
+
+        if product_match:
+            title = product_match.group(1)
+
+        if not title:
+            title_tag = soup.find("h1")
+
+            title = (
+                title_tag.get_text(
+                    " ",
+                    strip=True
+                )
+                if title_tag
+                else ""
+            )
 
         description = self._extract_description(
             soup
@@ -85,6 +104,26 @@ class DiwarFetcher:
         ):
 
             price = 0
+
+        if price <= 0:
+
+            offer_match = re.search(
+                r'"offers"\s*:\s*\{[^}]*'
+                r'"price"\s*:\s*"?(\d+)"?',
+                html
+            )
+
+            if offer_match:
+
+                try:
+                    price = int(
+                        offer_match.group(1)
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    price = 0
 
         return {
             "url": url,
