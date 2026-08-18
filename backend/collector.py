@@ -1,6 +1,6 @@
 class AdCollector:
     """
-    Collect and normalize advertisement data.
+    Collect and normalize advertisement data while preserving marketplace metadata.
     Supports single and multiple ads.
     """
 
@@ -15,9 +15,10 @@ class AdCollector:
         seller_type,
         testing=False,
         warranty=False,
-        condition="used"
+        condition="used",
+        **metadata
     ):
-        return {
+        result = {
             "title": self.clean_text(title),
             "description": self.clean_text(description),
             "price": self.clean_price(price),
@@ -26,6 +27,21 @@ class AdCollector:
             "has_warranty": self.clean_bool(warranty),
             "condition": self.clean_condition(condition)
         }
+
+        for key in (
+            "url",
+            "city",
+            "district",
+            "brand_model",
+            "category",
+            "image_count",
+            "image_urls",
+            "image_file"
+        ):
+            if key in metadata:
+                result[key] = metadata[key]
+
+        return result
 
     def collect_many(self, ads):
         collected = []
@@ -45,7 +61,17 @@ class AdCollector:
                     seller_type=ad.get("seller_type", "unknown"),
                     testing=ad.get("testing", False),
                     warranty=ad.get("warranty", False),
-                    condition=ad.get("condition", "used")
+                    condition=ad.get("condition", "used"),
+                    **{key: ad.get(key) for key in (
+                        "url",
+                        "city",
+                        "district",
+                        "brand_model",
+                        "category",
+                        "image_count",
+                        "image_urls",
+                        "image_file"
+                    ) if key in ad}
                 )
             )
 
@@ -90,24 +116,12 @@ class AdCollector:
             normalized = value.strip().lower()
 
             if normalized in (
-                "true",
-                "1",
-                "yes",
-                "y",
-                "on",
-                "بله",
-                "بلی"
+                "true", "1", "yes", "y", "on", "بله", "بلی"
             ):
                 return True
 
             if normalized in (
-                "false",
-                "0",
-                "no",
-                "n",
-                "off",
-                "خیر",
-                "نه"
+                "false", "0", "no", "n", "off", "خیر", "نه"
             ):
                 return False
 
