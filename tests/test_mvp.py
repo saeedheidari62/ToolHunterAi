@@ -136,3 +136,25 @@ def test_ai_tool_resolver_fallback(monkeypatch):
     assert result["tool"] == "bosch_gbh_2_26", result
     assert result["ai_tool_resolution"]["confidence"] == 0.96, result
     assert result["ai_tool_resolution"]["evidence"], result
+
+
+def test_ai_tool_discovery_candidate(monkeypatch):
+    from backend import api
+    monkeypatch.setattr(api.matcher, "match_all", lambda _: [])
+    monkeypatch.setattr(api.ai_tool_resolver, "resolve", lambda _: None)
+    monkeypatch.setattr(api.ai_tool_discovery, "discover", lambda text: {
+        "status": "CANDIDATE",
+        "brand": "Makita",
+        "model": "8281D",
+        "variant": "WAE",
+        "confidence": 0.94,
+        "evidence": ["8281DWAE appears in the advertisement title"]
+    })
+    result = analyze_single_ad({"title": "پیچ گوشتی شارژی ماکیتا 8281DWAE ژاپن اصل", "description": "دستگاه سالم", "price": 5000000, "seller_type": "personal", "condition": "used"})
+    assert result["error"] == "Tool not recognized.", result
+    candidate = result["tool_discovery"]
+    assert candidate["status"] == "CANDIDATE", result
+    assert candidate["brand"] == "Makita", result
+    assert candidate["model"] == "8281D", result
+    assert candidate["variant"] == "WAE", result
+    assert candidate["confidence"] >= 0.80, result
