@@ -107,9 +107,18 @@ class ToolKnowledgeBuilder:
                     normalized["median_price"] = (float(low) + float(high)) / 2
                 except (TypeError, ValueError):
                     pass
-        if "price_confidence" not in normalized:
+        confidence = normalized.get("price_confidence")
+        if isinstance(confidence, str):
+            confidence_map = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.4}
+            normalized["price_confidence"] = confidence_map.get(confidence.strip().upper(), 0.0)
+        elif confidence is None:
             try:
                 normalized["price_confidence"] = min(1.0, int(normalized.get("sample_count", 0)) / 10.0)
+            except (TypeError, ValueError):
+                normalized["price_confidence"] = 0.0
+        else:
+            try:
+                normalized["price_confidence"] = float(confidence)
             except (TypeError, ValueError):
                 normalized["price_confidence"] = 0.0
         normalized["sources"] = list(sources) if sources is not None else (normalized.get("sources") if isinstance(normalized.get("sources"), list) else [])
