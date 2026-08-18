@@ -22,22 +22,32 @@ class ToolKnowledgeBuilder:
         for field in self.REQUIRED_FIELDS:
             if field not in tool_data:
                 errors.append(f"Missing required field: {field}")
+        aliases = tool_data.get("aliases")
+        if aliases is not None and not isinstance(aliases, list):
+            errors.append("Aliases must be a list.")
+        sources = tool_data.get("sources")
+        if sources is not None and not isinstance(sources, list):
+            errors.append("Sources must be a list.")
+
         market = tool_data.get("market", {})
         if not isinstance(market, dict):
             errors.append("Market must be an object.")
         else:
+            market_status = str(market.get("status", "available")).strip().lower()
             for field in ("used_price_min", "used_price_max"):
                 if field not in market:
                     errors.append(f"Missing market field: {field}")
-            if "used_price_min" in market and "used_price_max" in market:
-                try:
-                    low, high = float(market["used_price_min"]), float(market["used_price_max"])
-                    if low <= 0 or high <= 0:
-                        errors.append("Market prices must be greater than zero.")
-                    elif low > high:
-                        errors.append("used_price_min cannot be greater than used_price_max.")
-                except (TypeError, ValueError):
-                    errors.append("Market prices must be numeric.")
+
+            if market_status != "unavailable":
+                if "used_price_min" in market and "used_price_max" in market:
+                    try:
+                        low, high = float(market["used_price_min"]), float(market["used_price_max"])
+                        if low <= 0 or high <= 0:
+                            errors.append("Market prices must be greater than zero.")
+                        elif low > high:
+                            errors.append("used_price_min cannot be greater than used_price_max.")
+                    except (TypeError, ValueError):
+                        errors.append("Market prices must be numeric.")
             sample_count = market.get("sample_count")
             if sample_count is not None:
                 try:
@@ -48,7 +58,7 @@ class ToolKnowledgeBuilder:
             median = market.get("median_price")
             if median is not None:
                 try:
-                    if float(median) <= 0:
+                    if float(median) <= 0 and market_status != "unavailable":
                         errors.append("Market median_price must be greater than zero.")
                 except (TypeError, ValueError):
                     errors.append("Market median_price must be numeric.")
@@ -60,8 +70,8 @@ class ToolKnowledgeBuilder:
                         errors.append("Market price_confidence must be between 0 and 1.")
                 except (TypeError, ValueError):
                     errors.append("Market price_confidence must be numeric.")
-            sources = market.get("sources")
-            if sources is not None and not isinstance(sources, list):
+            market_sources = market.get("sources")
+            if market_sources is not None and not isinstance(market_sources, list):
                 errors.append("Market sources must be a list.")
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -129,7 +139,7 @@ class ToolKnowledgeBuilder:
         tool_name, brand, category = str(tool_name or "").strip(), str(brand or "").strip(), str(category or "").strip()
         if not tool_name:
             return {"success": False, "errors": ["Tool name is required."]}
-        return {"success": True, "tool": {"tool_name": tool_name, "category": category, "brand": brand, "aliases": [tool_name], "technical": {}, "common_failures": [], "inspection": [], "repair": {}, "risk": {}, "market": {"used_price_min": None, "used_price_max": None, "median_price": None, "sample_count": 0, "price_confidence": 0.0, "sources": [], "last_updated": None}, "confidence": "draft", "sources": []}}
+        return {"success": True, "tool": {"tool_name": tool_name, "category": category, "brand": brand, "aliases": [tool_name], "technical": {}, "common_failures": [], "inspection": [], "repair": {}, "risk": {}, "market": {"used_price_min": None, "used_price_max": None, "median_price": None, "sample_count": 0, "price_confidence": 0.0, "sources": [], "status": "unavailable", "last_updated": None}, "confidence": "draft", "sources": []}}
 
     def enrich(self, draft, enrichment):
         if not isinstance(draft, dict):
