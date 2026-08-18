@@ -110,7 +110,10 @@ def prepare_ad(ad):
 
 def get_dynamic_market_data(tool_name, city="tehran", variant=None):
     city_map = {"تهران": "tehran", "teران": "tehran", "tehran": "tehran", "کرج": "karaj", "karaj": "karaj", "مشهد": "mashhad", "mashhad": "mashhad", "اصفهان": "isfahan", "isfahan": "isfahan", "شیراز": "shiraz", "shiraz": "shiraz", "تبریز": "tabriz", "tabriz": "tabriz"}
-    city_slug = city_map.get(str(city or "").strip().lower(), "tehran")
+    city_key = str(city or "").strip().lower()
+    city_slug = city_map.get(city_key)
+    if not city_slug:
+        return None
     try:
         search_result = divar_search_engine.search(city_slug, tool_name, variant=variant)
         filtered = divar_search_engine.filter_results(search_result.get("results", []), tool_name, variant)
@@ -129,6 +132,7 @@ def get_dynamic_market_data(tool_name, city="tehran", variant=None):
         else:
             return None
         market_data["variant"] = variant
+        market_data["city"] = city_slug
         return market_data
     except Exception:
         return None
@@ -141,7 +145,7 @@ def _promote_discovered_candidate(discovery, validation, collected_ad):
     candidate["status"] = validation.get("status")
     candidate["description"] = collected_ad.get("description", "")
     candidate["title"] = collected_ad.get("title", "")
-    candidate["city"] = collected_ad.get("city", "tehran")
+    candidate["city"] = collected_ad.get("city")
     candidate["technical_data"] = candidate.get("technical_data", discovery.get("technical_data", {}))
     candidate["technical_sources"] = candidate.get("technical_sources", discovery.get("technical_sources", []))
     return ai_tool_candidate_promoter.promote(candidate)
@@ -174,14 +178,23 @@ def analyze_single_ad(ad):
         ai_resolution = ai_tool_resolver.resolve(match_text)
         if ai_resolution:
             tool_ids = [ai_resolution["tool_id"]]
+    discovery = None
+    validation = None
+    promotion = None
     if not tool_ids:
         discovery = ai_tool_discovery.discover(match_text)
-        validation = None
-        promotion = None
         if discovery:
-            validation = ai_tool_candidate_validator.validate(discovery, city=collected_ad.get("city", "tehran"))
+            validation = ai_tool_candidate_validator.validate(discovery, city=collected_ad.get("city"))
             promotion = _promote_discovered_candidate(discovery, validation, collected_ad)
-        return {"error": "Tool not recognized.", "title": collected_ad["title"], "matched_tools": [], "tool_discovery": discovery, "tool_discovery_validation": validation, "tool_candidate_promotion": promotion}
+            if isinstance(promotion, dict) and promotion.get("status") in {"PROMOTED", "EXISTS"}:
+                matcher.reload()
+                tool_ids = matcher.match_all(match_text)
+                promoted_tool_id = promotion.get("tool_id")
+                if not tool_ids and promoted_tool_id:
+                    tool_ids = [promoted_tool_id]
+                ai_resolution = {"source": "candidate_promotion", "confidence": discovery.get("confidence", 0), "evidence": discovery.get("evidence", [])}
+        if not tool_ids:
+            return {"error": "Tool not recognized.", "title": collected_ad["title"], "matched_tools": [], "tool_discovery": discovery, "tool_discovery_validation": validation, "tool_candidate_promotion": promotion}
     if len(tool_ids) > 1:
         multi_result = multi_tool_analyzer.analyze(collected_ad["description"], tool_ids)
         ad_analysis = analyze_ad(collected_ad)
@@ -196,7 +209,7 @@ def analyze_single_ad(ad):
     tool_id = tool_ids[0]
     variant = variant_matcher.detect(collected_ad["title"] + " " + collected_ad["description"], tool_id)
     ad_analysis = analyze_ad(collected_ad)
-    market_data = get_dynamic_market_data(tool_id, collected_ad.get("city", "tehran"), variant)
+    market_data = get_dynamic_market_data(tool_id, collected_ad.get("city"), variant)
     decision_data = {"tool_name": tool_id, "asking_price": collected_ad["price"], "market_data": market_data, "has_test": collected_ad["has_test"], "has_warranty": collected_ad["has_warranty"], "description": collected_ad["description"], "ad_score": ad_analysis["ad_score"], "analysis": ad_analysis["analysis"], "image_file": ad.get("image_file"), "image_urls": ad.get("image_urls", [])}
     result = make_decision(decision_data)
     result["has_test"] = collected_ad["has_test"]
@@ -208,6 +221,10 @@ def analyze_single_ad(ad):
     result["variant"] = variant
     result["title"] = collected_ad["title"]
     result["market_data"] = market_data
+    if discovery is not None:
+        result["tool_discovery"] = discovery
+        result["tool_discovery_validation"] = validation
+        result["tool_candidate_promotion"] = promotion
     if ai_resolution:
         result["ai_tool_resolution"] = ai_resolution
     return result
