@@ -2,48 +2,16 @@
   "tool_name": "Makita 3600B",
   "category": "Router",
   "brand": "Makita",
-
-  "technical": {
-    "score": 50
-  },
-
-  "brand_info": {
-    "score": 93
-  },
-
-  "market": {
-    "new_price": 0,
-    "used_price_min": 0,
-    "used_price_max": 0
-  },
-
-  "common_failures": [
-    "Worn carbon brushes",
-    "Bearing noise",
-    "Collet wear",
-    "Armature damage",
-    "Power cable damage"
-  ],
-
-  "inspection": [
-    "Test motor operation",
-    "Check routing power",
-    "Inspect collet",
-    "Listen for bearing noise",
-    "Inspect power cable"
-  ],
-
-  "repair": {
-    "difficulty": "Medium",
-    "parts_available": true
-  },
-
-  "risk": {
-    "score": 50,
-    "level": "Unknown"
-  },
-
+  "aliases": ["3600b", "makita 3600b", "ماکیتا 3600b"],
+  "technical": {"score": 50, "sources": [], "last_updated": null},
+  "brand_info": {"score": 93},
+  "market": {"new_price": 0, "used_price_min": 0, "used_price_max": 0, "median_price": null, "sample_count": 0, "price_confidence": 0.0, "sources": [], "status": "unavailable", "last_updated": null},
+  "common_failures": ["Worn carbon brushes", "Bearing noise", "Collet wear", "Armature damage", "Power cable damage"],
+  "inspection": ["Test motor operation", "Check routing power", "Inspect collet", "Listen for bearing noise", "Inspect power cable"],
+  "repair": {"difficulty": "Medium", "parts_available": true},
+  "risk": {"score": 50, "level": "Unknown"},
   "buy_score": 50,
-
-  "recommendation": "REVIEW"
+  "recommendation": "REVIEW",
+  "confidence": "legacy_static",
+  "sources": []
 }
