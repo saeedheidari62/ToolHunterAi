@@ -14,10 +14,7 @@ class ToolCandidateValidator:
         confidence = candidate.get("confidence", 0)
 
         if not brand or not model:
-            return {
-                "status": "REJECTED",
-                "reason": "Brand and model are required."
-            }
+            return {"status": "REJECTED", "reason": "Brand and model are required."}
 
         try:
             confidence = float(confidence)
@@ -25,10 +22,7 @@ class ToolCandidateValidator:
             confidence = 0
 
         if confidence < 0.80:
-            return {
-                "status": "REJECTED",
-                "reason": "Discovery confidence is below validation threshold."
-            }
+            return {"status": "REJECTED", "reason": "Discovery confidence is below validation threshold."}
 
         query = f"{brand} {model}"
         try:
@@ -43,6 +37,7 @@ class ToolCandidateValidator:
                 "confidence": confidence,
                 "evidence": candidate.get("evidence", []),
                 "market_sample_count": 0,
+                "market_data": None,
                 "reason": "Market validation search failed."
             }
 
@@ -54,6 +49,23 @@ class ToolCandidateValidator:
             if model_key and model_key in title_key and item.get("price") is not None:
                 matched.append(item)
 
+        market_data = None
+        if matched:
+            try:
+                market_result = self.search_engine.get_market_prices({"results": matched})
+                if isinstance(market_result, dict) and market_result.get("valid"):
+                    sample_count = len(matched)
+                    market_data = {
+                        "used_price_min": market_result.get("min_price"),
+                        "used_price_max": market_result.get("max_price"),
+                        "median_price": market_result.get("median_price"),
+                        "sample_count": sample_count,
+                        "price_confidence": "HIGH" if sample_count >= 3 else "MEDIUM" if sample_count >= 2 else "LOW",
+                        "sources": ["divar"],
+                    }
+            except Exception:
+                market_data = None
+
         status = "VALIDATED" if len(matched) >= self.min_samples else "UNVERIFIED"
 
         return {
@@ -64,10 +76,7 @@ class ToolCandidateValidator:
             "confidence": confidence,
             "evidence": candidate.get("evidence", []),
             "market_sample_count": len(matched),
+            "market_data": market_data,
             "query": query,
-            "reason": (
-                "Candidate model was found in multiple marketplace listings."
-                if status == "VALIDATED"
-                else "Insufficient marketplace evidence to validate the candidate."
-            )
+            "reason": "Candidate model was found in multiple marketplace listings." if status == "VALIDATED" else "Insufficient marketplace evidence to validate the candidate."
         }
