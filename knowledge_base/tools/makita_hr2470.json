@@ -2,48 +2,16 @@
   "tool_name": "Makita HR2470",
   "category": "Rotary Hammer",
   "brand": "Makita",
-
-  "technical": {
-    "score": 90
-  },
-
-  "brand_info": {
-    "score": 93
-  },
-
-  "market": {
-    "new_price": 13500000,
-    "used_price_min": 7500000,
-    "used_price_max": 9000000
-  },
-
-  "common_failures": [
-    "Worn carbon brushes",
-    "Bearing noise",
-    "Chuck wear",
-    "Hammer mechanism failure",
-    "Armature damage"
-  ],
-
-  "inspection": [
-    "Test hammer mode",
-    "Check drilling power",
-    "Listen for bearing noise",
-    "Inspect chuck",
-    "Check cable condition"
-  ],
-
-  "repair": {
-    "difficulty": "Medium",
-    "parts_available": true
-  },
-
-  "risk": {
-    "score": 35,
-    "level": "Low"
-  },
-
+  "aliases": ["hr2470", "hr 2470", "makita 2470", "ماکیتا 2470", "ماکیتا hr2470", "ماکیتا اچ آر 2470", "بتن کن ماکیتا"],
+  "technical": {"score": 90, "sources": [], "last_updated": null},
+  "brand_info": {"score": 93},
+  "market": {"new_price": 13500000, "used_price_min": 7500000, "used_price_max": 9000000, "median_price": 8250000, "sample_count": 0, "price_confidence": 0.0, "sources": [], "status": "available", "last_updated": null},
+  "common_failures": ["Worn carbon brushes", "Bearing noise", "Chuck wear", "Hammer mechanism failure", "Armature damage"],
+  "inspection": ["Test hammer mode", "Check drilling power", "Listen for bearing noise", "Inspect chuck", "Check cable condition"],
+  "repair": {"difficulty": "Medium", "parts_available": true},
+  "risk": {"score": 35, "level": "Low"},
   "buy_score": 82,
-
-  "recommendation": "BUY"
+  "recommendation": "BUY",
+  "confidence": "legacy_static",
+  "sources": []
 }
