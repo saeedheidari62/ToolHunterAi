@@ -185,3 +185,84 @@ def test_divar_url_flows_through_fetch_and_collection(monkeypatch):
     assert result.get("error") is None, result
     assert result["tool"] == "bosch_gbh_2_26", result
     assert result["variant"] == "DRE", result
+
+
+def test_ai_tool_resolver_real_http_contract(monkeypatch):
+    import json
+    from backend.ai import tool_resolver
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({
+                "output": [{
+                    "content": [{
+                        "type": "output_text",
+                        "text": json.dumps({
+                            "candidate_tool_id": "bosch_gbh_2_26",
+                            "confidence": 0.96,
+                            "evidence": ["GBH 2-26 model identified"]
+                        })
+                    }]
+                }]
+            }).encode("utf-8")
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(tool_resolver.request, "urlopen", lambda *args, **kwargs: FakeResponse())
+
+    result = tool_resolver.AIToolResolver().resolve("Bosch GBH 2-26")
+    assert result["tool_id"] == "bosch_gbh_2_26", result
+    assert result["confidence"] == 0.96, result
+    assert result["evidence"], result
+
+
+def test_ai_tool_discovery_real_http_contract(monkeypatch):
+    import json
+    from backend.ai import tool_discovery
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({
+                "output": [{
+                    "content": [{
+                        "type": "output_text",
+                        "text": json.dumps({
+                            "brand": "Makita",
+                            "model": "8281D",
+                            "variant": "WAE",
+                            "confidence": 0.94,
+                            "evidence": ["8281DWAE appears in the title"]
+                        })
+                    }]
+                }]
+            }).encode("utf-8")
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(tool_discovery.request, "urlopen", lambda *args, **kwargs: FakeResponse())
+
+    result = tool_discovery.AIToolDiscovery().discover("پیچ گوشتی شارژی ماکیتا 8281DWAE ژاپن اصل")
+    assert result["status"] == "CANDIDATE", result
+    assert result["brand"] == "Makita", result
+    assert result["model"] == "8281D", result
+    assert result["variant"] == "WAE", result
+    assert result["confidence"] == 0.94, result
+
+
+def test_ai_components_disabled_without_api_key(monkeypatch):
+    from backend.ai.tool_resolver import AIToolResolver
+    from backend.ai.tool_discovery import AIToolDiscovery
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert AIToolResolver().resolve("Bosch GBH 2-26") is None
+    assert AIToolDiscovery().discover("Makita 8281DWAE") is None
