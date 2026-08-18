@@ -126,3 +126,97 @@ def test_medium_confidence_dynamic_market():
     assert result["price_status"] == "HIGH_PRICE", result
     assert result["price_difference_percent"] == 10.78, result
     assert not any("LOW confidence" in reason for reason in result["price_reason"]), result
+
+
+def test_decision_boundaries(monkeypatch):
+    from backend import decision_engine
+
+    monkeypatch.setattr(
+        decision_engine,
+        "load_tool",
+        lambda _: {
+            "risk": {"score": 0},
+            "buy_score": 100,
+            "market": {
+                "used_price_min": 100,
+                "used_price_max": 100
+            }
+        }
+    )
+    monkeypatch.setattr(
+        decision_engine,
+        "analyze_description",
+        lambda _: {
+            "description_risk": 0,
+            "description_reasons": [],
+            "price_signal": "NONE"
+        }
+    )
+    monkeypatch.setattr(
+        decision_engine.image_downloader,
+        "download",
+        lambda _: []
+    )
+    monkeypatch.setattr(
+        decision_engine,
+        "analyze_image",
+        lambda _: {"image_risk": 0, "image_reasons": []}
+    )
+    monkeypatch.setattr(
+        decision_engine,
+        "analyze_price",
+        lambda *_args, **_kwargs: {
+            "price_status": "GOOD_PRICE",
+            "price_score": 50,
+            "price_difference_percent": 0,
+            "price_reason": []
+        }
+    )
+
+    base = {
+        "tool_name": "bosch_gbh_2_26",
+        "asking_price": 100,
+        "has_test": True,
+        "has_warranty": False,
+        "description": "",
+        "ad_score": 50,
+        "analysis": []
+    }
+
+    result = decision_engine.make_decision(base)
+    assert result["decision"] == "BUY", result
+
+    review_data = dict(base)
+    review_data["ad_score"] = 50
+    monkeypatch.setattr(
+        decision_engine,
+        "load_tool",
+        lambda _: {
+            "risk": {"score": 20},
+            "buy_score": 75,
+            "market": {
+                "used_price_min": 100,
+                "used_price_max": 100
+            }
+        }
+    )
+    result = decision_engine.make_decision(review_data)
+    assert result["decision"] == "REVIEW", result
+
+    reject_data = dict(base)
+    reject_data["has_test"] = False
+    reject_data["has_warranty"] = True
+    monkeypatch.setattr(
+        decision_engine,
+        "load_tool",
+        lambda _: {
+            "risk": {"score": 80},
+            "buy_score": 50,
+            "market": {
+                "used_price_min": 100,
+                "used_price_max": 100
+            }
+        }
+    )
+    result = decision_engine.make_decision(reject_data)
+    assert result["decision"] == "DON'T BUY", result
