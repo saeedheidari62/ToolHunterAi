@@ -2,6 +2,9 @@ import json
 import re
 from pathlib import Path
 
+from backend.technical_intelligence_collector import TechnicalIntelligenceCollector
+from backend.tool_knowledge_builder import ToolKnowledgeBuilder
+
 
 class ToolCandidatePromoter:
     """Promote only validated, evidence-backed candidates into the Knowledge Base."""
@@ -11,6 +14,8 @@ class ToolCandidatePromoter:
         self.index_path = self.knowledge_dir / "tools_index.json"
         self.min_samples = int(min_samples)
         self.min_confidence = float(min_confidence)
+        self.technical_collector = TechnicalIntelligenceCollector()
+        self.knowledge_builder = ToolKnowledgeBuilder()
 
     def _slug(self, brand, model, variant=""):
         value = "_".join(part for part in [brand, model, variant] if str(part).strip())
@@ -28,11 +33,13 @@ class ToolCandidatePromoter:
         if not isinstance(market_data, dict):
             market_data = {}
 
-        technical_data = candidate.get("technical_data")
-        if not isinstance(technical_data, dict):
-            technical_data = candidate.get("technical")
-        if not isinstance(technical_data, dict):
-            technical_data = {}
+        technical_result = self.technical_collector.collect(
+            candidate=candidate,
+            description=candidate.get("description", ""),
+            sources=candidate.get("technical_sources", []),
+        )
+        technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
+        technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
 
         return {
             "tool_name": f"{brand} {model}".strip(),
@@ -45,12 +52,13 @@ class ToolCandidatePromoter:
                 "used_price_max": market_data.get("used_price_max"),
                 "median_price": market_data.get("median_price"),
                 "sample_count": market_data.get("sample_count", market_sample_count),
-                "price_confidence": market_data.get("price_confidence", "MEDIUM"),
+                "price_confidence": market_data.get("price_confidence", 0.0),
                 "sources": market_data.get("sources", ["divar"]),
                 "last_updated": market_data.get("last_updated"),
             },
             "common_failures": candidate.get("common_failures", []),
             "inspection": candidate.get("inspection", []),
+            "repair": candidate.get("repair", {}),
             "risk": candidate.get("risk", {"score": 50, "level": "Medium"}),
             "buy_score": candidate.get("buy_score", 50),
             "recommendation": candidate.get("recommendation", "REVIEW"),
@@ -59,7 +67,8 @@ class ToolCandidatePromoter:
                 "confidence": confidence,
                 "evidence": evidence,
                 "market_sample_count": market_sample_count,
-                "technical_sources": candidate.get("technical_sources", []),
+                "technical_sources": technical_sources,
+                "technical_confidence": technical_result.get("technical_confidence", "NONE"),
             },
         }
 
@@ -99,6 +108,24 @@ class ToolCandidatePromoter:
 
         data = knowledge if isinstance(knowledge, dict) else self._build_default_knowledge(candidate)
 
+        technical_result = self.technical_collector.collect(
+            candidate=candidate,
+            description=candidate.get("description", ""),
+            sources=candidate.get("technical_sources", []),
+        )
+        if technical_result.get("success"):
+            data["technical"] = technical_result.get("technical", data.get("technical", {}))
+            data.setdefault("discovery", {})["technical_sources"] = technical_result.get("technical_sources", [])
+            data["discovery"]["technical_confidence"] = technical_result.get("technical_confidence", "NONE")
+            data["discovery"]["technical_last_updated"] = technical_result.get("last_updated")
+
+        technical_normalized = self.knowledge_builder.normalize_technical(
+            data.get("technical", {}),
+            data.get("discovery", {}).get("technical_sources", []),
+        )
+        if technical_normalized.get("success"):
+            data["technical"] = technical_normalized["technical"]
+
         with tool_path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, ensure_ascii=False, indent=2)
 
@@ -125,4 +152,5 @@ class ToolCandidatePromoter:
             "tool_id": tool_id,
             "file": filename,
             "market_sample_count": market_sample_count,
+            "technical_confidence": data.get("discovery", {}).get("technical_confidence", "NONE"),
         }
