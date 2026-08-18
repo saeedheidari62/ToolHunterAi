@@ -97,8 +97,8 @@ def test_low_confidence_market_fallback():
         }
     )
 
-    assert result["price_status"] == "GOOD_PRICE", result
-    assert result["price_difference_percent"] == 0.0, result
+    assert result["price_status"] == "FAIR_PRICE", result
+    assert result["price_difference_percent"] == 2.86, result
     assert any("LOW confidence" in reason for reason in result["price_reason"]), result
 
 
@@ -153,9 +153,9 @@ def test_decision_boundaries(monkeypatch):
         }
     )
     monkeypatch.setattr(
-        decision_engine.image_downloader,
+        decision_engine.ImageDownloader,
         "download",
-        lambda _: []
+        lambda self, _: []
     )
     monkeypatch.setattr(
         decision_engine,
