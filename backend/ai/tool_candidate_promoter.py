@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 
+from backend.evidence_layer import EvidenceLayer
 from backend.technical_intelligence_collector import TechnicalIntelligenceCollector
 from backend.tool_knowledge_builder import ToolKnowledgeBuilder
 
@@ -16,6 +17,7 @@ class ToolCandidatePromoter:
         self.min_confidence = float(min_confidence)
         self.technical_collector = TechnicalIntelligenceCollector()
         self.knowledge_builder = ToolKnowledgeBuilder()
+        self.evidence_layer = EvidenceLayer()
 
     def _slug(self, brand, model, variant=""):
         value = "_".join(part for part in [brand, model, variant] if str(part).strip())
@@ -40,10 +42,17 @@ class ToolCandidatePromoter:
         )
         technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
         technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
+        sources = list(dict.fromkeys([
+            *(["divar"] if market_data else []),
+            *technical_sources,
+            *(str(item).strip() for item in evidence if str(item).strip()) if isinstance(evidence, list) else [],
+        ]))
 
         return {
             "tool_name": f"{brand} {model}".strip(),
+            "category": candidate.get("category", "toolbox"),
             "brand": brand,
+            "aliases": list(dict.fromkeys([model, f"{brand} {model}".strip(), variant] if variant else [model, f"{brand} {model}".strip()])),
             "technical": technical_data,
             "brand_info": {"score": 0},
             "market": {
@@ -60,6 +69,8 @@ class ToolCandidatePromoter:
             "inspection": candidate.get("inspection", []),
             "repair": candidate.get("repair", {}),
             "risk": candidate.get("risk", {"score": 50, "level": "Medium"}),
+            "confidence": confidence,
+            "sources": sources,
             "buy_score": candidate.get("buy_score", 50),
             "recommendation": candidate.get("recommendation", "REVIEW"),
             "discovery": {
@@ -97,6 +108,16 @@ class ToolCandidatePromoter:
             return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
         if not isinstance(evidence, list) or not evidence:
             return {"status": "REJECTED", "reason": "Evidence is required for promotion."}
+        if not isinstance(candidate.get("market_data"), dict):
+            return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
+
+        evidence_result = self.evidence_layer.build(
+            discovery={"confidence": confidence, "sources": evidence},
+            technical=candidate.get("technical", {}),
+            market=candidate.get("market_data", {}),
+        )
+        if not evidence_result["sufficient"]:
+            return {"status": "REJECTED", "reason": "Unified evidence is insufficient for promotion.", "evidence": evidence_result}
 
         tool_id = self._slug(brand, model, variant)
         filename = f"{tool_id}.json"
@@ -107,6 +128,9 @@ class ToolCandidatePromoter:
             return {"status": "EXISTS", "tool_id": tool_id, "file": filename}
 
         data = knowledge if isinstance(knowledge, dict) else self._build_default_knowledge(candidate)
+        data["evidence"] = evidence_result
+        data["confidence"] = confidence
+        data.setdefault("sources", evidence_result.get("sources", []))
 
         technical_result = self.technical_collector.collect(
             candidate=candidate,
@@ -126,6 +150,10 @@ class ToolCandidatePromoter:
         if technical_normalized.get("success"):
             data["technical"] = technical_normalized["technical"]
 
+        validation = self.knowledge_builder.build(data)
+        if not validation["success"]:
+            return {"status": "REJECTED", "reason": "Generated knowledge failed schema validation.", "errors": validation["errors"]}
+
         with tool_path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, ensure_ascii=False, indent=2)
 
@@ -141,7 +169,7 @@ class ToolCandidatePromoter:
             "brand": brand,
             "category": data.get("category", "toolbox"),
             "file": filename,
-            "aliases": [model, f"{brand} {model}".strip()],
+            "aliases": data.get("aliases", [model, f"{brand} {model}".strip()]),
         })
 
         with self.index_path.open("w", encoding="utf-8") as handle:
@@ -153,4 +181,5 @@ class ToolCandidatePromoter:
             "file": filename,
             "market_sample_count": market_sample_count,
             "technical_confidence": data.get("discovery", {}).get("technical_confidence", "NONE"),
+            "evidence_confidence": evidence_result.get("overall_confidence", 0.0),
         }
