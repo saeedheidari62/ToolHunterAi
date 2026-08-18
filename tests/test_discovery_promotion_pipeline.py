@@ -70,6 +70,70 @@ def test_unknown_tool_api_promotes_only_validated_candidate(monkeypatch):
     assert result["tool_candidate_promotion"]["market_sample_count"] == 3, result
 
 
+def test_promoted_candidate_is_rematched_in_same_request(monkeypatch):
+    from backend import api
+
+    discovery = {
+        "status": "CANDIDATE",
+        "brand": "Makita",
+        "model": "8281D",
+        "variant": "WAE",
+        "confidence": 0.94,
+        "evidence": ["model found in title"],
+    }
+    validation = {
+        "status": "VALIDATED",
+        "brand": "Makita",
+        "model": "8281D",
+        "variant": "WAE",
+        "confidence": 0.94,
+        "evidence": ["model found in title"],
+        "market_sample_count": 3,
+        "market_data": {
+            "used_price_min": 18000000,
+            "used_price_max": 25000000,
+            "median_price": 22000000,
+            "sample_count": 3,
+            "price_confidence": "HIGH",
+            "sources": ["divar"],
+        },
+    }
+
+    calls = {"count": 0}
+
+    def match(text):
+        calls["count"] += 1
+        return [] if calls["count"] == 1 else ["makita_8281d_wae"]
+
+    monkeypatch.setattr(api.matcher, "match_all", match)
+    monkeypatch.setattr(api.ai_tool_resolver, "resolve", lambda _: None)
+    monkeypatch.setattr(api.ai_tool_discovery, "discover", lambda _: discovery)
+    monkeypatch.setattr(api.ai_tool_candidate_validator, "validate", lambda *_args, **_kwargs: validation)
+    monkeypatch.setattr(api.ai_tool_candidate_promoter, "promote", lambda _: {"status": "PROMOTED", "tool_id": "makita_8281d_wae"})
+    monkeypatch.setattr(api, "get_dynamic_market_data", lambda *_args, **_kwargs: {
+        "valid": True,
+        "sample_count": 3,
+        "median_price": 22000000,
+        "min_price": 18000000,
+        "max_price": 25000000,
+        "confidence": "HIGH",
+    })
+
+    result = api.analyze_single_ad({
+        "title": "Makita 8281DWAE",
+        "description": "Original cordless drill",
+        "price": 22000000,
+        "seller_type": "personal",
+        "testing": True,
+        "warranty": False,
+        "condition": "used",
+    })
+
+    assert calls["count"] == 2
+    assert result.get("tool") == "makita_8281d_wae", result
+    assert result.get("tool_candidate_promotion", {}).get("status") == "PROMOTED", result
+
+
 def test_unknown_tool_api_does_not_promote_unverified_candidate(monkeypatch):
     from backend import api
 
