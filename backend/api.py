@@ -132,15 +132,7 @@ def _normalize_market_city(engine, city):
     normalizer = getattr(engine, "_normalize_city", None)
     if callable(normalizer):
         return normalizer(city)
-    aliases = {
-        "تهران": "tehran", "tehran": "tehran",
-        "کرج": "karaj", "karaj": "karaj",
-        "مشهد": "mashhad", "mashhad": "mashhad",
-        "اصفهان": "isfahan", "isfahan": "isfahan",
-        "شیراز": "shiraz", "shiraz": "shiraz",
-        "تبریز": "tabriz", "tabriz": "tabriz",
-        "قم": "qom", "qom": "qom",
-    }
+    aliases = {"تهران": "tehran", "tehran": "tehran", "کرج": "karaj", "karaj": "karaj", "مشهد": "mashhad", "mashhad": "mashhad", "اصفهان": "isfahan", "isfahan": "isfahan", "شیراز": "shiraz", "shiraz": "shiraz", "تبریز": "tabriz", "tabriz": "tabriz", "قم": "qom", "qom": "qom"}
     return aliases.get(str(city or "").strip().lower(), "")
 
 
@@ -156,7 +148,7 @@ def get_dynamic_market_data(tool_name, city="tehran", variant=None):
         market_data = divar_search_engine.get_market_prices({"results": filtered})
         if not market_data.get("valid"):
             return None
-        sample_count = int(market_data.get("sample_count", 0) or 0)
+        sample_count = market_data.get("sample_count", 0)
         if sample_count >= 3:
             market_data["confidence"] = "HIGH"
         elif sample_count >= 2:
@@ -188,18 +180,122 @@ def _promote_discovered_candidate(discovery, validation, collected_ad):
 
 
 def _decision_payload(tool_id, asking_price, collected_ad, ad_analysis, description, market_data=None, image_file=None, image_urls=None):
-    return {
-        "tool_name": tool_id,
-        "asking_price": asking_price or 0,
-        "market_data": market_data,
-        "has_test": collected_ad["has_test"],
-        "has_warranty": collected_ad["has_warranty"],
-        "description": description,
-        "ad_score": ad_analysis["ad_score"],
-        "analysis": ad_analysis["reasons"],
-        "image_file": image_file,
-        "image_urls": image_urls or [],
-    }
+    return {"tool_name": tool_id, "asking_price": asking_price or 0, "market_data": market_data, "has_test": collected_ad["has_test"], "has_warranty": collected_ad["has_warranty"], "description": description, "ad_score": ad_analysis["ad_score"], "analysis": ad_analysis["analysis"], "image_file": image_file, "image_urls": image_urls or []}
 
 
-# analyze_single_ad and remaining routes intentionally stay unchanged.
+def analyze_single_ad(ad):
+    ad = prepare_ad(ad)
+    if isinstance(ad, dict) and ad.get("_prepare_error"):
+        return _error(ad["_prepare_error"], diagnostics=ad.get("_prepare_diagnostics", {}))
+    normalized = normalizer.normalize(ad)
+    if not normalized["valid"]:
+        return _error("INVALID_AD", errors=normalized["errors"])
+    ad = normalized["ad"]
+    collected_ad = collector.collect(title=ad["title"], description=ad["description"], price=ad["price"], seller_type=ad["seller_type"], testing=ad.get("testing", False), warranty=ad.get("warranty", False), condition=ad.get("condition", "used"), **{key: ad.get(key) for key in ("url", "city", "district", "brand_model", "category", "image_count", "image_urls", "image_file") if key in ad})
+    match_text = collected_ad["title"] + " " + collected_ad["description"] + " " + collected_ad.get("brand_model", "")
+    tool_ids = matcher.match_all(match_text)
+    ai_resolution = None
+    if not tool_ids:
+        ai_resolution = ai_tool_resolver.resolve(match_text)
+        if ai_resolution:
+            tool_ids = [ai_resolution["tool_id"]]
+    discovery = None
+    validation = None
+    promotion = None
+    if not tool_ids:
+        discovery = ai_tool_discovery.discover(match_text)
+        if discovery:
+            validation = ai_tool_candidate_validator.validate(discovery, city=collected_ad.get("city"))
+            promotion = _promote_discovered_candidate(discovery, validation, collected_ad)
+            if isinstance(promotion, dict) and promotion.get("status") in {"PROMOTED", "EXISTS"}:
+                matcher.reload()
+                tool_ids = matcher.match_all(match_text)
+                promoted_tool_id = promotion.get("tool_id")
+                if not tool_ids and promoted_tool_id:
+                    tool_ids = [promoted_tool_id]
+                ai_resolution = {"source": "candidate_promotion", "confidence": discovery.get("confidence", 0), "evidence": discovery.get("evidence", [])}
+        if not tool_ids:
+            return _error("TOOL_NOT_RECOGNIZED", title=collected_ad["title"], matched_tools=[], tool_discovery=discovery, tool_discovery_validation=validation, tool_candidate_promotion=promotion)
+    if len(tool_ids) > 1:
+        multi_result = multi_tool_analyzer.analyze(collected_ad["description"], tool_ids)
+        ad_analysis = analyze_ad(collected_ad)
+        individual_results = []
+        for item in multi_result["tools"]:
+            tool_id = item["tool_id"]
+            asking_price = item["asking_price"]
+            decision_data = _decision_payload(tool_id, asking_price, collected_ad, ad_analysis, item["text"], image_file=ad.get("image_file"), image_urls=ad.get("image_urls", []))
+            decision = make_decision(decision_data)
+            individual_results.append({"tool_id": tool_id, "asking_price": asking_price, "decision": decision})
+        return {"status": "REVIEW", "message": ERROR_CODES["MULTIPLE_TOOLS"], "title": collected_ad["title"], "matched_tools": tool_ids, "multi_tool_analysis": multi_result, "individual_results": individual_results, "decision": "REVIEW", "reason": "Multiple tools were detected and each tool was analyzed independently."}
+    tool_id = tool_ids[0]
+    variant = variant_matcher.detect(collected_ad["title"] + " " + collected_ad["description"], tool_id)
+    ad_analysis = analyze_ad(collected_ad)
+    market_data = get_dynamic_market_data(tool_id, collected_ad.get("city"), variant)
+    decision_data = _decision_payload(tool_id, collected_ad["price"], collected_ad, ad_analysis, collected_ad["description"], market_data=market_data, image_file=ad.get("image_file"), image_urls=ad.get("image_urls", []))
+    result = make_decision(decision_data)
+    result["has_test"] = collected_ad["has_test"]
+    result["has_warranty"] = collected_ad["has_warranty"]
+    result["price_status"] = result.get("price_status")
+    result["price_difference_percent"] = result.get("price_difference_percent")
+    result["ad_score"] = ad_analysis["ad_score"]
+    result["tool"] = tool_id
+    result["variant"] = variant
+    result["title"] = collected_ad["title"]
+    result["market_data"] = market_data
+    result["market_source"] = (market_data or {}).get("source") if isinstance(market_data, dict) else None
+    if discovery is not None:
+        result["tool_discovery"] = discovery
+        result["tool_discovery_validation"] = validation
+        result["tool_candidate_promotion"] = promotion
+    if ai_resolution:
+        result["ai_tool_resolution"] = ai_resolution
+    return result
+
+
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "INVALID_REQUEST", "message": "Invalid or missing JSON data."}), 400
+    if "ads" not in data:
+        return jsonify({"error": "MISSING_ADS", "message": "Field 'ads' is required."}), 400
+    ads = data["ads"]
+    if not isinstance(ads, list):
+        return jsonify({"error": "INVALID_ADS", "message": "Field 'ads' must be a list."}), 400
+    if not ads:
+        return jsonify({"error": "EMPTY_ADS", "message": "Ads list cannot be empty."}), 400
+    results = []
+    errors = []
+    for index, ad in enumerate(ads):
+        result = analyze_single_ad(ad)
+        if "error" in result:
+            errors.append({"index": index, "error": result})
+        else:
+            results.append(result)
+    if not results:
+        return jsonify({"error": "NO_VALID_ADS", "message": "No valid ads could be analyzed.", "errors": errors}), 400
+    final = ranker.rank(results)
+    explanation = explainer.explain(final["best_choice"], final["ranking"])
+    analysis_id = create_analysis_id()
+    created_at = create_timestamp()
+    analysis_record = {"analysis_id": analysis_id, "created_at": created_at, "service": "ToolHunterAI API", "version": "2.0", "total_ads": final["total_ads"], "best_choice": final["best_choice"], "ranking": final["ranking"], "explanation": explanation, "errors": errors}
+    save_history(analysis_record)
+    return jsonify({"analysis_id": analysis_id, "created_at": created_at, "service": "ToolHunterAI API", "version": "2.0", "total_ads": final["total_ads"], "best_choice": final["best_choice"], "ranking": final["ranking"], "explanation": explanation, "errors": errors})
+
+
+@app.route("/history", methods=["GET"])
+def history():
+    records = get_history()
+    return jsonify({"service": "ToolHunterAI API", "total": len(records), "history": records})
+
+
+@app.route("/history/<analysis_id>", methods=["GET"])
+def history_detail(analysis_id):
+    record = get_history_by_id(analysis_id)
+    if record is None:
+        return jsonify({"error": "ANALYSIS_NOT_FOUND", "message": "Analysis not found.", "analysis_id": analysis_id}), 404
+    return jsonify({"service": "ToolHunterAI API", "analysis": record})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
