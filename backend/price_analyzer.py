@@ -59,26 +59,13 @@ def analyze_price(tool_data, asking_price, market_data=None):
     dynamic_rejected_reason = None
     if supplied_dynamic and dynamic_valid:
         if not dynamic_values_present:
-            dynamic_rejected_reason = "Dynamic market data is valid but does not contain a usable price range."
+            dynamic_rejected_reason = "Dynamic market data is valid but does not contain a usable price range; the static baseline was used."
         elif not dynamic_range_valid:
-            dynamic_rejected_reason = "Dynamic market data was rejected because its price range is invalid."
+            dynamic_rejected_reason = "Dynamic market data was rejected because its price range is invalid; the static baseline was used."
         elif dynamic_confidence_level not in ("HIGH", "MEDIUM"):
-            dynamic_rejected_reason = "Dynamic market data was not strong enough because its confidence is LOW; the static baseline was used."
+            dynamic_rejected_reason = "Dynamic market data was not strong enough because its LOW confidence required the static baseline."
         elif raw_count is not None and dynamic_sample_count < 2:
             dynamic_rejected_reason = "Dynamic market data was not strong enough because it has fewer than 2 effective samples; the static baseline was used."
-
-    # Validity/range failures are not a reliable dynamic market and must not
-    # silently turn the knowledge-base price into a GOOD_PRICE result.
-    if supplied_dynamic and dynamic_valid and (not dynamic_values_present or not dynamic_range_valid):
-        return {
-            "price_score": 50,
-            "price_status": "UNKNOWN",
-            "price_reason": [dynamic_rejected_reason or "Dynamic market data is invalid."],
-            "price_difference_percent": None,
-            "market_source": "dynamic",
-            "market_confidence": dynamic_confidence_level,
-            "market_benchmark_reason": dynamic_rejected_reason or "Dynamic market data is invalid.",
-        }
 
     use_dynamic_market = (
         dynamic_valid and dynamic_values_present and dynamic_range_valid
