@@ -70,10 +70,17 @@ def make_decision(ad_data):
     price_result = analyze_price(tool, asking_price, market_data=market_data)
     market_confidence = _normalize_market_confidence(price_result.get("market_confidence"))
     supplied_market_confidence = None
+    effective_market_samples = None
     if isinstance(market_data, dict):
         supplied_market_confidence = _normalize_market_confidence(market_data.get("confidence", market_data.get("price_confidence")))
+        try:
+            effective_market_samples = int(market_data.get("sample_count")) if market_data.get("sample_count") is not None else None
+        except (TypeError, ValueError):
+            effective_market_samples = None
         if market_confidence is None:
             market_confidence = supplied_market_confidence
+        if effective_market_samples == 1:
+            market_confidence = "LOW"
     price_status = price_result["price_status"]
     price_score = price_result["price_score"]
     price_difference_percent = price_result.get("price_difference_percent")
@@ -121,7 +128,11 @@ def make_decision(ad_data):
 
     low_confidence_market = (
         isinstance(market_data, dict)
-        and (market_confidence == "LOW" or supplied_market_confidence == "LOW")
+        and (
+            market_confidence == "LOW"
+            or supplied_market_confidence == "LOW"
+            or effective_market_samples == 1
+        )
     )
     if price_signal == "PRICE_ON_REQUEST":
         decision = "REVIEW"
