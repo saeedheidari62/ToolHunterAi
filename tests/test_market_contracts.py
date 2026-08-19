@@ -1,3 +1,4 @@
+from backend.divar_search_engine import DivarSearchEngine
 from backend.market_price_engine import MarketPriceEngine
 from backend.price_analyzer import analyze_price
 
@@ -53,3 +54,22 @@ def test_invalid_market_data_returns_unknown_price_status():
     result = analyze_price(tool, 10, market_data={"valid": True, "confidence": "HIGH"})
     assert result["price_status"] == "UNKNOWN"
     assert result["price_difference_percent"] is None
+
+
+def test_divar_search_resolves_tool_id_to_market_name():
+    engine = DivarSearchEngine()
+    assert engine.build_query("makita_hr2470") == "Makita HR2470"
+    assert engine.build_query("بوش ۲۶") == "Bosch GBH 2-26"
+
+
+def test_divar_search_normalizes_supported_cities_without_fallback():
+    engine = DivarSearchEngine()
+    assert engine._normalize_city("تهران") == "tehran"
+    assert engine._normalize_city("Karaj") == "karaj"
+    assert engine._normalize_city("قم") == "qom"
+    assert engine._normalize_city("unknown-city") == ""
+
+
+def test_divar_search_variant_query_is_explicit():
+    engine = DivarSearchEngine()
+    assert engine.build_query("bosch_gbh_2_26", variant="DRE") == "Bosch GBH 2-26 DRE"
