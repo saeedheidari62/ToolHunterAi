@@ -27,8 +27,9 @@ def analyze_price(tool_data, asking_price, market_data=None):
 
     supplied_dynamic = isinstance(market_data, dict)
     dynamic_confidence_level = _normalize_market_confidence(market_data.get("confidence")) if supplied_dynamic else None
+    raw_count = market_data.get("sample_count") if supplied_dynamic else None
     try:
-        dynamic_sample_count = int(market_data.get("sample_count", 0) or 0) if supplied_dynamic else 0
+        dynamic_sample_count = int(raw_count) if raw_count is not None else (3 if dynamic_confidence_level == "HIGH" else 2 if dynamic_confidence_level == "MEDIUM" else 1 if dynamic_confidence_level == "LOW" else 0)
     except (TypeError, ValueError):
         dynamic_sample_count = 0
 
@@ -36,10 +37,10 @@ def analyze_price(tool_data, asking_price, market_data=None):
     dynamic_max = market_data.get("max_price") if supplied_dynamic else None
     dynamic_median = market_data.get("median_price") if supplied_dynamic else None
     dynamic_range_valid = all(isinstance(v, (int, float)) and float(v) > 0 for v in (dynamic_min, dynamic_max, dynamic_median)) and float(dynamic_min) <= float(dynamic_median) <= float(dynamic_max)
+    dynamic_valid = bool(supplied_dynamic and market_data.get("valid"))
+    use_dynamic_market = dynamic_valid and dynamic_confidence_level in ("HIGH", "MEDIUM") and dynamic_sample_count >= 2 and dynamic_range_valid
 
-    use_dynamic_market = supplied_dynamic and market_data.get("valid") and dynamic_confidence_level in ("HIGH", "MEDIUM") and dynamic_sample_count >= 2 and dynamic_range_valid
-
-    if supplied_dynamic and market_data.get("valid") and not dynamic_range_valid and dynamic_sample_count == 0:
+    if dynamic_valid and not dynamic_range_valid:
         return {"price_score": 50, "price_status": "UNKNOWN", "price_reason": ["Dynamic market data is marked valid but does not contain a usable price range."], "price_difference_percent": None, "market_source": "dynamic", "market_confidence": dynamic_confidence_level or "NONE", "market_benchmark_reason": "Dynamic market data was invalid or incomplete."}
 
     if use_dynamic_market:
@@ -71,7 +72,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
 
     difference_percent = ((asking_price - market_reference) / market_reference) * 100
     reasons = [benchmark_reason]
-    if supplied_dynamic and market_data.get("valid") and not use_dynamic_market:
+    if dynamic_valid and not use_dynamic_market:
         if dynamic_confidence_level == "LOW":
             reasons.append("Dynamic market data was not strong enough because it has LOW confidence; the static baseline was used.")
         elif dynamic_sample_count < 2:
