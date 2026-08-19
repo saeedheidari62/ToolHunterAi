@@ -19,6 +19,10 @@ def _normalize_market_confidence(value):
         normalized = value.strip().upper()
         if normalized in {"HIGH", "MEDIUM", "LOW", "NONE"}:
             return normalized
+        try:
+            value = float(normalized)
+        except (TypeError, ValueError):
+            return None
     if isinstance(value, (int, float)):
         if value >= 0.8:
             return "HIGH"
@@ -65,6 +69,8 @@ def make_decision(ad_data):
     market_data = ad_data.get("market_data")
     price_result = analyze_price(tool, asking_price, market_data=market_data)
     market_confidence = _normalize_market_confidence(price_result.get("market_confidence"))
+    if market_confidence is None and isinstance(market_data, dict):
+        market_confidence = _normalize_market_confidence(market_data.get("confidence", market_data.get("price_confidence")))
     price_status = price_result["price_status"]
     price_score = price_result["price_score"]
     price_difference_percent = price_result.get("price_difference_percent")
@@ -111,11 +117,12 @@ def make_decision(ad_data):
     risk_score = max(0, min(100, round(risk_score)))
 
     dynamic_market = market_source in {"dynamic", "dynamic_divar"}
+    low_confidence_market = market_confidence == "LOW" and isinstance(market_data, dict)
     if price_signal == "PRICE_ON_REQUEST":
         decision = "REVIEW"
-    elif not has_test and not has_warranty:
+    elif low_confidence_market:
         decision = "REVIEW"
-    elif market_confidence == "LOW" and dynamic_market:
+    elif not has_test and not has_warranty:
         decision = "REVIEW"
     elif buy_score >= 85 and risk_score <= 40:
         decision = "BUY"
@@ -130,8 +137,8 @@ def make_decision(ad_data):
     elif decision == "DON'T BUY":
         decision_reason = "The combined price, advertisement, or risk signals do not meet the purchase threshold."
         next_action = "Reject this listing and compare another seller."
-    elif market_confidence == "LOW" and dynamic_market:
-        decision_reason = "Dynamic market confidence is LOW, so the live price benchmark is not strong enough for a final purchase decision."
+    elif low_confidence_market:
+        decision_reason = "Market confidence is LOW, so the available price evidence is not strong enough for a final purchase decision."
         next_action = "Collect at least 2 comparable listings before making a final decision."
     elif not has_test and not has_warranty:
         decision_reason = "Seller verification is insufficient because neither testing nor warranty is available."
