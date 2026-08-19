@@ -10,6 +10,16 @@ from .market_price_engine import MarketPriceEngine
 
 class DivarSearchEngine:
 
+    CITY_SLUGS = {
+        "تهران": "tehran", "tehran": "tehran",
+        "کرج": "karaj", "karaj": "karaj",
+        "مشهد": "mashhad", "mashhad": "mashhad",
+        "اصفهان": "isfahan", "isfahan": "isfahan",
+        "شیراز": "shiraz", "shiraz": "shiraz",
+        "تبریز": "tabriz", "tabriz": "tabriz",
+        "قم": "qom", "qom": "qom",
+    }
+
     def __init__(self):
         self.headers = {
             "User-Agent": (
@@ -47,6 +57,7 @@ class DivarSearchEngine:
         text = str(text or "").lower()
         text = text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789"))
         text = text.replace("–", "-").replace("—", "-")
+        text = text.replace("ي", "ی").replace("ك", "ک")
         return re.sub(r"\s+", " ", text).strip()
 
     def _resolve_tool_name(self, tool_name):
@@ -76,16 +87,8 @@ class DivarSearchEngine:
         return query
 
     def _normalize_city(self, city):
-        aliases = {
-            "تهران": "tehran", "tehran": "tehran",
-            "کرج": "karaj", "karaj": "karaj",
-            "مشهد": "mashhad", "mashhad": "mashhad",
-            "اصفهان": "isfahan", "isfahan": "isfahan",
-            "شیراز": "shiraz", "shiraz": "shiraz",
-            "تبریز": "tabriz", "tabriz": "tabriz",
-        }
-        value = str(city or "").strip().lower()
-        return aliases.get(value, re.sub(r"[^a-z0-9_-]", "", value))
+        value = self._normalize_text(city).strip()
+        return self.CITY_SLUGS.get(value, "")
 
     def search(self, city, query, variant=None, aliases=None):
         city = self._normalize_city(city)
@@ -93,8 +96,11 @@ class DivarSearchEngine:
         if not city or not query:
             return {"results": [], "search_url": "", "error": "INVALID_SEARCH_INPUT"}
         url = f"https://divar.ir/s/{city}?q={requests.utils.quote(query)}"
-        response = requests.get(url, headers=self.headers, timeout=20, allow_redirects=True)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, headers=self.headers, timeout=20, allow_redirects=True)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            return {"results": [], "search_url": url, "error": "MARKET_FETCH_FAILED", "details": str(exc)}
         return self.parse_results(response.text, url)
 
     def filter_results(self, results, tool_name, variant=None):
@@ -110,9 +116,11 @@ class DivarSearchEngine:
             title = self._normalize_text(item.get("title", ""))
             if not all(token in title for token in model_tokens):
                 continue
-            if variant and variant != "BASE" and normalized_tool == "bosch gbh 2-26":
-                variant_pattern = rf"\bgbh[\s-]*2[\s-]*26[\s-]*{re.escape(variant.lower())}\b"
-                if not re.search(variant_pattern, title):
+            if variant and variant != "BASE":
+                normalized_variant = self._normalize_text(variant)
+                compact_title = re.sub(r"[^a-z0-9]+", "", title)
+                compact_variant = re.sub(r"[^a-z0-9]+", "", normalized_variant)
+                if compact_variant and compact_variant not in compact_title:
                     continue
             if item.get("price") is None:
                 continue
