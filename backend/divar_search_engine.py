@@ -1,4 +1,7 @@
+import json
 import re
+from pathlib import Path
+
 import requests
 
 from bs4 import BeautifulSoup
@@ -18,30 +21,56 @@ class DivarSearchEngine:
             "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
             "Referer": "https://divar.ir/",
         }
+        self.project_root = Path(__file__).resolve().parent.parent
+        self.tools_index_path = self.project_root / "knowledge_base" / "tools" / "tools_index.json"
+        self._tool_index_cache = None
+
+    def _load_tool_index(self):
+        if self._tool_index_cache is not None:
+            return self._tool_index_cache
+        try:
+            with self.tools_index_path.open("r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, ValueError, TypeError):
+            data = {"tools": []}
+        self._tool_index_cache = data if isinstance(data, dict) else {"tools": []}
+        return self._tool_index_cache
+
+    def _resolve_tool_name(self, tool_name):
+        value = str(tool_name or "").strip()
+        if not value:
+            return ""
+        normalized = value.lower().replace("_", " ").strip()
+        for tool in self._load_tool_index().get("tools", []):
+            if not isinstance(tool, dict):
+                continue
+            candidates = [tool.get("id"), tool.get("name")]
+            candidates.extend(tool.get("aliases") or [])
+            for candidate in candidates:
+                candidate = str(candidate or "").strip()
+                if candidate and candidate.lower().replace("_", " ").strip() == normalized:
+                    return str(tool.get("name") or value).strip()
+        return value
 
     def build_query(self, tool_name, variant=None, aliases=None):
-        """Build a human-readable marketplace query from a tool id/name."""
-        base_query = str(tool_name or "").strip()
-        if not base_query:
+        """Build a human-readable marketplace query from the live tool index."""
+        query = self._resolve_tool_name(tool_name)
+        if not query and aliases:
+            query = str(aliases[0]).strip()
+        if not query:
             return ""
-
-        known_names = {
-            "bosch_gbh_2_26": "Bosch GBH 2-26",
-            "makita_hr2470": "Makita HR2470",
-            "bosch_gsh500": "Bosch GSH500",
-            "dewalt_d25810": "DeWalt D25810",
-            "bosch_p10": "Bosch P10",
-            "bosch_pss280": "Bosch PSS280",
-            "makita_3600b": "Makita 3600B",
-        }
-        query = known_names.get(base_query.lower(), base_query)
 
         if variant and variant != "BASE":
             query = f"{query} {variant}"
 
         return query
 
+    def _normalize_city(self, city):
+        value = str(city or "").strip().lower()
+        return re.sub(r"[^a-z0-9_-]", "", value)
+
     def search(self, city, query, variant=None, aliases=None):
+        city = self._normalize_city(city)
         query = self.build_query(query, variant, aliases)
         if not city or not query:
             return {"results": [], "search_url": "", "error": "INVALID_SEARCH_INPUT"}
@@ -64,7 +93,7 @@ class DivarSearchEngine:
         if not tool_name:
             return results
 
-        normalized_tool = tool_name.lower()
+        normalized_tool = self._resolve_tool_name(tool_name).lower()
         tokens = re.findall(r"[a-z0-9]+", normalized_tool)
         model_tokens = [
             token for token in tokens
@@ -80,12 +109,12 @@ class DivarSearchEngine:
             if not all(token in title for token in model_tokens):
                 continue
 
-            if variant and variant != "BASE":
+            if variant and variant != "BASE" and normalized_tool == "bosch gbh 2-26":
                 variant_pattern = (
                     rf"\bgbh[\s-]*2[\s-]*26[\s-]*"
                     rf"{re.escape(variant.lower())}\b"
                 )
-                if tool_name == "bosch_gbh_2_26" and not re.search(variant_pattern, title):
+                if not re.search(variant_pattern, title):
                     continue
 
             if item.get("price") is None:
@@ -125,20 +154,24 @@ class DivarSearchEngine:
     def parse_results(self, html, search_url=""):
         soup = BeautifulSoup(html, "html.parser")
         results = []
+        seen = set()
 
         for link in soup.find_all("a", href=True):
             title = link.get_text(" ", strip=True)
             if not title:
                 continue
 
-            price = self.extract_price(title)
             href = link.get("href", "")
             if href.startswith("/"):
                 href = "https://divar.ir" + href
+            href = href.split("?")[0]
+            if "/v/" not in href or href in seen:
+                continue
+            seen.add(href)
 
             results.append({
                 "title": title,
-                "price": price,
+                "price": self.extract_price(title),
                 "url": href,
             })
 
