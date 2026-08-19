@@ -129,9 +129,7 @@ def prepare_ad(ad):
 
 
 def get_dynamic_market_data(tool_name, city="tehran", variant=None):
-    city_map = {"تهران": "tehran", "teران": "tehran", "tehran": "tehran", "کرج": "karaj", "karaj": "karaj", "مشهد": "mashhad", "mashhad": "mashhad", "اصفهان": "isfahan", "isfahan": "isfahan", "شیراز": "shiraz", "shiraz": "shiraz", "تبریز": "tabriz", "tabriz": "tabriz"}
-    city_key = str(city or "").strip().lower()
-    city_slug = city_map.get(city_key)
+    city_slug = divar_search_engine._normalize_city(city)
     if not city_slug:
         return None
     try:
