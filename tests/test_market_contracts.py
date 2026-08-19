@@ -29,3 +29,27 @@ def test_price_analyzer_marks_static_fallback_explicitly():
     tool = {"market": {"used_price_min": 8, "used_price_max": 12}}
     result = analyze_price(tool, 10, market_data=None)
     assert result["market_source"] == "knowledge_base"
+
+
+def test_low_confidence_dynamic_market_does_not_override_static_baseline():
+    tool = {"market": {"used_price_min": 8, "used_price_max": 12}}
+    result = analyze_price(
+        tool,
+        10,
+        market_data={
+            "valid": True,
+            "confidence": "LOW",
+            "min_price": 1,
+            "max_price": 2,
+            "median_price": 1.5,
+        },
+    )
+    assert result["market_source"] == "knowledge_base"
+    assert any("LOW confidence" in reason for reason in result["price_reason"])
+
+
+def test_invalid_market_data_returns_unknown_price_status():
+    tool = {"market": {"used_price_min": 8, "used_price_max": 12}}
+    result = analyze_price(tool, 10, market_data={"valid": True, "confidence": "HIGH"})
+    assert result["price_status"] == "UNKNOWN"
+    assert result["price_difference_percent"] is None
