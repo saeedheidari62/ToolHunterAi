@@ -8,14 +8,14 @@ def test_api_error_contract_has_stable_code_and_message():
     assert result["title"] == "Example"
 
 
-def test_dynamic_market_rejects_unknown_city_without_search():
+def test_dynamic_market_rejects_unknown_city_without_search(monkeypatch):
     called = []
 
     def fake_search(*args, **kwargs):
         called.append((args, kwargs))
         return {"results": []}
 
-    api.divar_search_engine.search = fake_search
+    monkeypatch.setattr(api.divar_search_engine, "search", fake_search)
     assert api.get_dynamic_market_data("makita_hr2470", city="unknown-city") is None
     assert called == []
 
