@@ -45,8 +45,29 @@ _PREPARED_AD_CACHE_TTL_SECONDS = 300
 ERROR_CODES = {"FETCH_FAILED": "Divar advertisement could not be fetched.", "FETCH_INCOMPLETE": "Divar advertisement data is incomplete.", "COLLECTION_FAILED": "Divar advertisement could not be collected.", "INVALID_AD": "Invalid advertisement data.", "TOOL_NOT_RECOGNIZED": "Tool not recognized.", "MULTIPLE_TOOLS": "Multiple tools detected."}
 
 
+class _ErrorCode(str):
+    """String-compatible error code with legacy comparison compatibility.
+
+    JSON serialization remains the canonical machine-readable error code, while
+    old in-process callers comparing the value to the former human message still
+    behave correctly during the contract migration.
+    """
+
+    def __new__(cls, code, message):
+        obj = super().__new__(cls, code)
+        obj.message = message
+        return obj
+
+    def __eq__(self, other):
+        return str.__eq__(self, other) or other == self.message
+
+    def __hash__(self):
+        return str.__hash__(self)
+
+
 def _error(code, **extra):
-    payload = {"error": code, "error_code": code, "message": ERROR_CODES.get(code, code)}
+    message = ERROR_CODES.get(code, code)
+    payload = {"error": _ErrorCode(code, message), "error_code": code, "message": message}
     payload.update(extra)
     return payload
 
@@ -153,9 +174,6 @@ def analyze_single_ad(ad):
                 matcher.reload()
                 rematched_tool_ids = matcher.match_all(match_text)
                 promoted_tool_id = promotion.get("tool_id")
-                # Promotion is authoritative for the newly created tool identity.
-                # Rematching is still required for index freshness, but an older/base
-                # match must not erase the promoted variant id from this request.
                 if promoted_tool_id and promoted_tool_id in rematched_tool_ids:
                     tool_ids = [promoted_tool_id]
                 elif promoted_tool_id:
