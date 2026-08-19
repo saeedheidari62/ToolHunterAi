@@ -67,8 +67,23 @@ def analyze_price(tool_data, asking_price, market_data=None):
     sample_confidence = _confidence_from_sample_count(dynamic_sample_count) if raw_count is not None else None
     dynamic_confidence_level = _conservative_confidence(supplied_confidence, sample_confidence)
 
+    # A dynamic source is eligible only when it has a complete, internally
+    # consistent range and enough reliable evidence. Invalid dynamic data
+    # must never silently become a GOOD/FAIR price against the static range.
+    dynamic_rejected_reason = None
+    if supplied_dynamic and dynamic_valid:
+        if not dynamic_values_present:
+            dynamic_rejected_reason = "Dynamic market data is valid but does not contain a usable price range; the static market baseline was used."
+        elif not dynamic_range_valid:
+            dynamic_rejected_reason = "Dynamic market data was rejected because its price range is invalid; the static market baseline was used."
+        elif dynamic_confidence_level not in ("HIGH", "MEDIUM"):
+            dynamic_rejected_reason = "Dynamic market data was not strong enough because its confidence is LOW; the static market baseline was used."
+        elif raw_count is not None and dynamic_sample_count < 2:
+            dynamic_rejected_reason = "Dynamic market data was not strong enough because it has fewer than 2 effective samples; the static market baseline was used."
+
     use_dynamic_market = (
         dynamic_valid
+        and dynamic_values_present
         and dynamic_range_valid
         and dynamic_confidence_level in ("HIGH", "MEDIUM")
         and (raw_count is None or dynamic_sample_count >= 2)
@@ -79,23 +94,13 @@ def analyze_price(tool_data, asking_price, market_data=None):
         market_source = "dynamic"
         market_confidence = dynamic_confidence_level
         benchmark_reason = "Dynamic market data passed the confidence, sample-count, and range checks."
-    elif supplied_dynamic and dynamic_valid and not dynamic_values_present:
-        return {
-            "price_score": 50,
-            "price_status": "UNKNOWN",
-            "price_reason": ["Dynamic market data is valid but does not contain a usable price range."],
-            "price_difference_percent": None,
-            "market_source": "knowledge_base",
-            "market_confidence": dynamic_confidence_level,
-            "market_benchmark_reason": "Dynamic market data was rejected because its price range is incomplete.",
-        }
     else:
         benchmark = market
         market_source = "knowledge_base"
         market_confidence = dynamic_confidence_level if supplied_dynamic else None
         if not market_confidence:
             market_confidence = _normalize_market_confidence(market.get("price_confidence", market.get("confidence"))) or "NONE"
-        benchmark_reason = "Knowledge Base market data was used because dynamic market data was unavailable or insufficient."
+        benchmark_reason = dynamic_rejected_reason or "Knowledge Base market data was used because dynamic market data was unavailable or insufficient."
 
     low = benchmark.get("used_price_min", benchmark.get("median_price"))
     high = benchmark.get("used_price_max", benchmark.get("median_price"))
@@ -117,15 +122,6 @@ def analyze_price(tool_data, asking_price, market_data=None):
 
     difference_percent = ((asking_price - market_reference) / market_reference) * 100
     reasons = [benchmark_reason]
-    if dynamic_valid and not use_dynamic_market and market_source == "knowledge_base":
-        if dynamic_confidence_level == "LOW":
-            reasons.append("Dynamic market data was not strong enough because it has LOW confidence; the static market baseline was used.")
-        elif dynamic_sample_count < 2 and raw_count is not None:
-            reasons.append("Dynamic market data was not strong enough because it has fewer than 2 effective samples; the static market baseline was used.")
-        elif not dynamic_range_valid:
-            reasons.append("Dynamic market data was not strong enough because its range was invalid; the static market baseline was used.")
-        else:
-            reasons.append("Dynamic market data was not strong enough; the static market baseline was used.")
 
     if asking_price < low * 0.90:
         score, status = 80, "VERY_GOOD_PRICE"; reasons.append("The unusually low price should be verified carefully.")
