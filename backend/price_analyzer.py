@@ -11,20 +11,15 @@ def _normalize_market_confidence(value):
         score = float(value)
     except (TypeError, ValueError):
         return None
-    if score >= 0.8:
-        return "HIGH"
-    if score >= 0.6:
-        return "MEDIUM"
-    if score > 0:
-        return "LOW"
+    if score >= 0.8: return "HIGH"
+    if score >= 0.6: return "MEDIUM"
+    if score > 0: return "LOW"
     return "NONE"
 
 
 def _confidence_from_sample_count(sample_count):
-    try:
-        count = int(sample_count or 0)
-    except (TypeError, ValueError):
-        count = 0
+    try: count = int(sample_count or 0)
+    except (TypeError, ValueError): count = 0
     if count >= 3: return "HIGH"
     if count >= 2: return "MEDIUM"
     if count == 1: return "LOW"
@@ -37,15 +32,13 @@ def _confidence_rank(value):
 
 def _conservative_confidence(*values):
     normalized = [v for v in values if v in {"HIGH", "MEDIUM", "LOW", "NONE"}]
-    if not normalized:
-        return "NONE"
+    if not normalized: return "NONE"
     return min(normalized, key=_confidence_rank)
 
 
 def analyze_price(tool_data, asking_price, market_data=None):
     market = tool_data.get("market", {}) if isinstance(tool_data, dict) else {}
-    if not isinstance(market, dict):
-        market = {}
+    if not isinstance(market, dict): market = {}
 
     supplied_dynamic = isinstance(market_data, dict)
     dynamic_valid = bool(supplied_dynamic and market_data.get("valid"))
@@ -56,35 +49,39 @@ def analyze_price(tool_data, asking_price, market_data=None):
     dynamic_range_valid = dynamic_values_present and float(dynamic_min) <= float(dynamic_median) <= float(dynamic_max)
 
     raw_count = market_data.get("sample_count") if supplied_dynamic else None
-    try:
-        dynamic_sample_count = int(raw_count) if raw_count is not None else 0
-    except (TypeError, ValueError):
-        dynamic_sample_count = 0
+    try: dynamic_sample_count = int(raw_count) if raw_count is not None else 0
+    except (TypeError, ValueError): dynamic_sample_count = 0
 
-    supplied_confidence = _normalize_market_confidence(
-        market_data.get("confidence", market_data.get("price_confidence"))
-    ) if supplied_dynamic else None
+    supplied_confidence = _normalize_market_confidence(market_data.get("confidence", market_data.get("price_confidence"))) if supplied_dynamic else None
     sample_confidence = _confidence_from_sample_count(dynamic_sample_count) if raw_count is not None else None
     dynamic_confidence_level = _conservative_confidence(supplied_confidence, sample_confidence)
 
-    # A dynamic source is eligible only when it has a complete, internally
-    # consistent range and enough reliable evidence. Invalid dynamic data
-    # must never silently become a GOOD/FAIR price against the static range.
     dynamic_rejected_reason = None
     if supplied_dynamic and dynamic_valid:
         if not dynamic_values_present:
-            dynamic_rejected_reason = "Dynamic market data is valid but does not contain a usable price range; the static market baseline was used."
+            dynamic_rejected_reason = "Dynamic market data is valid but does not contain a usable price range."
         elif not dynamic_range_valid:
-            dynamic_rejected_reason = "Dynamic market data was rejected because its price range is invalid; the static market baseline was used."
+            dynamic_rejected_reason = "Dynamic market data was rejected because its price range is invalid."
         elif dynamic_confidence_level not in ("HIGH", "MEDIUM"):
-            dynamic_rejected_reason = "Dynamic market data was not strong enough because its confidence is LOW; the static market baseline was used."
+            dynamic_rejected_reason = "Dynamic market data was not strong enough because its confidence is LOW; the static baseline was used."
         elif raw_count is not None and dynamic_sample_count < 2:
-            dynamic_rejected_reason = "Dynamic market data was not strong enough because it has fewer than 2 effective samples; the static market baseline was used."
+            dynamic_rejected_reason = "Dynamic market data was not strong enough because it has fewer than 2 effective samples; the static baseline was used."
+
+    # Validity/range failures are not a reliable dynamic market and must not
+    # silently turn the knowledge-base price into a GOOD_PRICE result.
+    if supplied_dynamic and dynamic_valid and (not dynamic_values_present or not dynamic_range_valid):
+        return {
+            "price_score": 50,
+            "price_status": "UNKNOWN",
+            "price_reason": [dynamic_rejected_reason or "Dynamic market data is invalid."],
+            "price_difference_percent": None,
+            "market_source": "dynamic",
+            "market_confidence": dynamic_confidence_level,
+            "market_benchmark_reason": dynamic_rejected_reason or "Dynamic market data is invalid.",
+        }
 
     use_dynamic_market = (
-        dynamic_valid
-        and dynamic_values_present
-        and dynamic_range_valid
+        dynamic_valid and dynamic_values_present and dynamic_range_valid
         and dynamic_confidence_level in ("HIGH", "MEDIUM")
         and (raw_count is None or dynamic_sample_count >= 2)
     )
@@ -105,18 +102,14 @@ def analyze_price(tool_data, asking_price, market_data=None):
     low = benchmark.get("used_price_min", benchmark.get("median_price"))
     high = benchmark.get("used_price_max", benchmark.get("median_price"))
     try:
-        asking_price = float(asking_price)
-        low = float(low)
-        high = float(high)
+        asking_price = float(asking_price); low = float(low); high = float(high)
     except (TypeError, ValueError):
         return {"price_score": 50, "price_status": "UNKNOWN", "price_reason": ["No valid market price data is available."], "price_difference_percent": None, "market_source": market_source, "market_confidence": market_confidence, "market_benchmark_reason": benchmark_reason}
     if asking_price <= 0 or low <= 0 or high <= 0 or low > high:
         return {"price_score": 50, "price_status": "UNKNOWN", "price_reason": ["Invalid market price data."], "price_difference_percent": None, "market_source": market_source, "market_confidence": market_confidence, "market_benchmark_reason": benchmark_reason}
 
-    try:
-        market_reference = float(benchmark.get("median_price"))
-    except (TypeError, ValueError):
-        market_reference = (low + high) / 2
+    try: market_reference = float(benchmark.get("median_price"))
+    except (TypeError, ValueError): market_reference = (low + high) / 2
     if market_reference <= 0:
         return {"price_score": 50, "price_status": "UNKNOWN", "price_reason": ["Invalid market reference price."], "price_difference_percent": None, "market_source": market_source, "market_confidence": market_confidence, "market_benchmark_reason": benchmark_reason}
 
