@@ -153,7 +153,15 @@ def analyze_single_ad(ad):
                 matcher.reload()
                 rematched_tool_ids = matcher.match_all(match_text)
                 promoted_tool_id = promotion.get("tool_id")
-                tool_ids = rematched_tool_ids or ([promoted_tool_id] if promoted_tool_id else [])
+                # Promotion is authoritative for the newly created tool identity.
+                # Rematching is still required for index freshness, but an older/base
+                # match must not erase the promoted variant id from this request.
+                if promoted_tool_id and promoted_tool_id in rematched_tool_ids:
+                    tool_ids = [promoted_tool_id]
+                elif promoted_tool_id:
+                    tool_ids = [promoted_tool_id]
+                else:
+                    tool_ids = rematched_tool_ids
                 ai_resolution = {"source": "candidate_promotion", "confidence": discovery.get("confidence", 0), "evidence": discovery.get("evidence", [])}
         if not tool_ids:
             return _error("TOOL_NOT_RECOGNIZED", title=collected_ad["title"], matched_tools=[], tool_discovery=discovery, tool_discovery_validation=validation, tool_candidate_promotion=promotion)
