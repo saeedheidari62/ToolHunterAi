@@ -54,22 +54,29 @@ class AIToolDiscovery:
             return None
 
         result = self._extract_result(raw)
-        if not result:
+        if not isinstance(result, dict):
             return None
 
-        candidate_tool_id = str(result.get("candidate_tool_id", result.get("tool_id", ""))).strip()
-        model = str(result.get("model", "")).strip()
+        candidate_tool_id = str(result.get("candidate_tool_id") or result.get("tool_id") or "").strip()
+        model = str(result.get("model") or "").strip()
         confidence = result.get("confidence", 0)
         try:
             confidence = float(confidence)
         except (TypeError, ValueError):
             return None
+
+        # Some valid discovery responses contain only candidate_tool_id. Treat
+        # that identifier as the model fallback so the contract remains usable.
         if not candidate_tool_id and model:
             candidate_tool_id = model
         if not model and candidate_tool_id:
             model = candidate_tool_id
-        if not model or confidence < self.min_confidence:
+        if not candidate_tool_id or not model or confidence < self.min_confidence:
             return None
+
+        evidence = result.get("evidence", [])
+        if not isinstance(evidence, list):
+            evidence = [str(evidence)] if evidence else []
 
         return {
             "status": "CANDIDATE",
@@ -79,15 +86,23 @@ class AIToolDiscovery:
             "model": model,
             "variant": str(result.get("variant", "")).strip(),
             "confidence": confidence,
-            "evidence": result.get("evidence", []),
+            "evidence": evidence,
         }
 
     def _extract_result(self, response):
+        if not isinstance(response, dict):
+            return None
         for item in response.get("output", []):
+            if not isinstance(item, dict):
+                continue
             for content in item.get("content", []):
+                if not isinstance(content, dict):
+                    continue
                 if content.get("type") == "output_text":
+                    text = content.get("text", "")
                     try:
-                        return json.loads(content.get("text", ""))
+                        parsed = json.loads(text)
                     except (TypeError, ValueError):
                         return None
+                    return parsed if isinstance(parsed, dict) else None
         return None
