@@ -46,20 +46,20 @@ ERROR_CODES = {"FETCH_FAILED": "Divar advertisement could not be fetched.", "FET
 
 
 class _ErrorCode(str):
-    """String-compatible error code with legacy comparison compatibility.
-
-    JSON serialization remains the canonical machine-readable error code, while
-    old in-process callers comparing the value to the former human message still
-    behave correctly during the contract migration.
-    """
+    """Canonical machine code that remains equal to the legacy message in-process."""
 
     def __new__(cls, code, message):
-        obj = super().__new__(cls, code)
+        obj = str.__new__(cls, code)
         obj.message = message
         return obj
 
     def __eq__(self, other):
-        return str.__eq__(self, other) or other == self.message
+        if isinstance(other, str):
+            return str.__eq__(self, other) or self.message == other
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
         return str.__hash__(self)
@@ -73,8 +73,9 @@ def _error(code, **extra):
 
 
 def create_analysis_id(): return str(uuid.uuid4())
-
 def create_timestamp(): return datetime.now(timezone.utc).isoformat()
+
+
 def _get_cached_prepared_ad(url):
     cached = _PREPARED_AD_CACHE.get(url)
     if not cached: return None
@@ -173,10 +174,11 @@ def analyze_single_ad(ad):
             if isinstance(promotion, dict) and promotion.get("status") in {"PROMOTED", "EXISTS"}:
                 matcher.reload()
                 rematched_tool_ids = matcher.match_all(match_text)
-                promoted_tool_id = promotion.get("tool_id")
-                if promoted_tool_id and promoted_tool_id in rematched_tool_ids:
-                    tool_ids = [promoted_tool_id]
-                elif promoted_tool_id:
+                promoted_tool_id = str(promotion.get("tool_id") or "").strip()
+                # Promotion establishes the authoritative identity. Rematching is
+                # still required so the matcher/index is refreshed, but a stale or
+                # shorter alias must never overwrite the promoted canonical ID.
+                if promoted_tool_id:
                     tool_ids = [promoted_tool_id]
                 else:
                     tool_ids = rematched_tool_ids
