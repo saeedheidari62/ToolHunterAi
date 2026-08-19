@@ -35,10 +35,11 @@ class AIToolDiscovery:
                             "brand": {"type": "string"},
                             "model": {"type": "string"},
                             "variant": {"type": "string"},
+                            "candidate_tool_id": {"type": "string"},
                             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                             "evidence": {"type": "array", "items": {"type": "string"}},
                         },
-                        "required": ["brand", "model", "variant", "confidence", "evidence"],
+                        "required": ["brand", "model", "variant", "candidate_tool_id", "confidence", "evidence"],
                         "additionalProperties": False,
                     },
                 }
@@ -56,16 +57,30 @@ class AIToolDiscovery:
         if not result:
             return None
 
-        model = str(result.get("model", result.get("candidate_tool_id", ""))).strip()
+        candidate_tool_id = str(result.get("candidate_tool_id", result.get("tool_id", ""))).strip()
+        model = str(result.get("model", "")).strip()
         confidence = result.get("confidence", 0)
         try:
             confidence = float(confidence)
         except (TypeError, ValueError):
             return None
+        if not candidate_tool_id and model:
+            candidate_tool_id = model
+        if not model and candidate_tool_id:
+            model = candidate_tool_id
         if not model or confidence < self.min_confidence:
             return None
 
-        return {"status": "CANDIDATE", "brand": str(result.get("brand", "")).strip(), "model": model, "variant": str(result.get("variant", "")).strip(), "confidence": confidence, "evidence": result.get("evidence", [])}
+        return {
+            "status": "CANDIDATE",
+            "tool_id": candidate_tool_id,
+            "candidate_tool_id": candidate_tool_id,
+            "brand": str(result.get("brand", "")).strip(),
+            "model": model,
+            "variant": str(result.get("variant", "")).strip(),
+            "confidence": confidence,
+            "evidence": result.get("evidence", []),
+        }
 
     def _extract_result(self, response):
         for item in response.get("output", []):
