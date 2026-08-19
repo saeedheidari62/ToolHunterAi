@@ -20,18 +20,48 @@ def _normalize_market_confidence(value):
     return "NONE"
 
 
+def _confidence_from_sample_count(sample_count):
+    try:
+        count = int(sample_count or 0)
+    except (TypeError, ValueError):
+        count = 0
+    if count >= 3:
+        return "HIGH"
+    if count >= 2:
+        return "MEDIUM"
+    if count == 1:
+        return "LOW"
+    return "NONE"
+
+
 def analyze_price(tool_data, asking_price, market_data=None):
     market = tool_data.get("market", {}) if isinstance(tool_data, dict) else {}
     if not isinstance(market, dict):
         market = {}
 
     supplied_dynamic = isinstance(market_data, dict)
-    dynamic_confidence_level = _normalize_market_confidence(market_data.get("confidence")) if supplied_dynamic else None
+    if supplied_dynamic and not market_data.get("valid"):
+        return {
+            "price_score": 50,
+            "price_status": "UNKNOWN",
+            "price_reason": ["Dynamic market data is invalid, so no reliable market benchmark is available."],
+            "price_difference_percent": None,
+            "market_source": "dynamic",
+            "market_confidence": _normalize_market_confidence(market_data.get("confidence")) or "NONE",
+            "market_benchmark_reason": "Dynamic market data was marked invalid.",
+        }
+
     raw_count = market_data.get("sample_count") if supplied_dynamic else None
     try:
-        dynamic_sample_count = int(raw_count) if raw_count is not None else (3 if dynamic_confidence_level == "HIGH" else 2 if dynamic_confidence_level == "MEDIUM" else 1 if dynamic_confidence_level == "LOW" else 0)
+        dynamic_sample_count = int(raw_count) if raw_count is not None else 0
     except (TypeError, ValueError):
         dynamic_sample_count = 0
+
+    dynamic_confidence_level = (
+        _confidence_from_sample_count(dynamic_sample_count)
+        if supplied_dynamic and raw_count is not None
+        else _normalize_market_confidence(market_data.get("confidence")) if supplied_dynamic else None
+    )
 
     dynamic_min = market_data.get("min_price") if supplied_dynamic else None
     dynamic_max = market_data.get("max_price") if supplied_dynamic else None
