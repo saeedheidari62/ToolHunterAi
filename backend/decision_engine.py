@@ -22,7 +22,7 @@ def _normalize_market_confidence(value):
     if isinstance(value, (int, float)):
         if value >= 0.8:
             return "HIGH"
-        if value >= 0.5:
+        if value >= 0.6:
             return "MEDIUM"
         if value > 0:
             return "LOW"
