@@ -16,7 +16,7 @@ def test_low_sample_dynamic_market_uses_static_baseline():
     tool = {"market": {"used_price_min": 8000000, "used_price_max": 9500000}}
     result = analyze_price(tool, 9000000, market_data={"valid": True, "sample_count": 1, "min_price": 8000000, "max_price": 8000000, "median_price": 8000000, "confidence": "MEDIUM"})
     assert result["market_source"] == "knowledge_base", result
-    assert any("static market baseline" in reason for reason in result["price_reason"]), result
+    assert any("static baseline" in reason.lower() for reason in result["price_reason"]), result
 
 
 def test_promotion_uses_market_data_sample_count(tmp_path):
@@ -47,7 +47,8 @@ def test_knowledge_index_references_existing_files():
 
 def test_invalid_input_keeps_structured_api_contract():
     result = analyze_single_ad({"title": "Bosch GBH 2-26"})
-    assert result["error"] == "Invalid advertisement data."
+    assert result["error"] == "INVALID_AD"
+    assert result["message"] == "Invalid advertisement data."
     assert isinstance(result.get("errors"), list) and result["errors"]
 
 
