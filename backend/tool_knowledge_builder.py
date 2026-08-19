@@ -19,16 +19,19 @@ class ToolKnowledgeBuilder:
         if not isinstance(tool_data, dict):
             return {"valid": False, "errors": ["Tool data must be a dictionary."]}
         errors = []
+        normalized = dict(tool_data)
+        if "tool_name" not in normalized and "name" in normalized:
+            normalized["tool_name"] = normalized["name"]
         for field in self.REQUIRED_FIELDS:
-            if field not in tool_data:
+            if field not in normalized:
                 errors.append(f"Missing required field: {field}")
-        aliases = tool_data.get("aliases")
+        aliases = normalized.get("aliases")
         if aliases is not None and not isinstance(aliases, list):
             errors.append("Aliases must be a list.")
-        sources = tool_data.get("sources")
+        sources = normalized.get("sources")
         if sources is not None and not isinstance(sources, list):
             errors.append("Sources must be a list.")
-        market = tool_data.get("market", {})
+        market = normalized.get("market", {})
         if not isinstance(market, dict):
             errors.append("Market must be an object.")
         else:
@@ -61,6 +64,8 @@ class ToolKnowledgeBuilder:
                 except (TypeError, ValueError):
                     errors.append("Market median_price must be numeric.")
             confidence = market.get("price_confidence")
+            if isinstance(confidence, str):
+                confidence = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.4, "NONE": 0.0}.get(confidence.strip().upper())
             if confidence is not None:
                 try:
                     confidence = float(confidence)
@@ -106,7 +111,7 @@ class ToolKnowledgeBuilder:
                 try: normalized["median_price"] = (float(low) + float(high)) / 2
                 except (TypeError, ValueError): pass
         confidence = normalized.get("price_confidence")
-        if isinstance(confidence, str): normalized["price_confidence"] = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.4}.get(confidence.strip().upper(), 0.0)
+        if isinstance(confidence, str): normalized["price_confidence"] = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.4, "NONE": 0.0}.get(confidence.strip().upper(), 0.0)
         elif confidence is None:
             try: normalized["price_confidence"] = min(1.0, int(normalized.get("sample_count", 0)) / 10.0)
             except (TypeError, ValueError): normalized["price_confidence"] = 0.0
@@ -142,6 +147,7 @@ class ToolKnowledgeBuilder:
     def build(self, tool_data):
         if not isinstance(tool_data, dict): return {"success": False, "errors": ["Tool data must be a dictionary."]}
         normalized = dict(tool_data)
+        if "tool_name" not in normalized and "name" in normalized: normalized["tool_name"] = normalized["name"]
         market_result = self.normalize_market(normalized.get("market", {}))
         if market_result["success"]:
             normalized["market"] = market_result["market"]
