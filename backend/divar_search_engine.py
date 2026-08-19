@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 
 import requests
-
 from bs4 import BeautifulSoup
 
 from .market_price_engine import MarketPriceEngine
@@ -16,6 +15,7 @@ class DivarSearchEngine:
             "User-Agent": (
                 "Mozilla/5.0 (X11; Linux x86_64) "
                 "AppleWebKit/537.36 "
+                "KHTML, like Gecko "
                 "Chrome/120.0.0.0 Safari/537.36"
             ),
             "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
@@ -24,9 +24,14 @@ class DivarSearchEngine:
         self.project_root = Path(__file__).resolve().parent.parent
         self.tools_index_path = self.project_root / "knowledge_base" / "tools" / "tools_index.json"
         self._tool_index_cache = None
+        self._tool_index_mtime = None
 
     def _load_tool_index(self):
-        if self._tool_index_cache is not None:
+        try:
+            current_mtime = self.tools_index_path.stat().st_mtime_ns
+        except OSError:
+            current_mtime = None
+        if self._tool_index_cache is not None and current_mtime == self._tool_index_mtime:
             return self._tool_index_cache
         try:
             with self.tools_index_path.open("r", encoding="utf-8") as handle:
@@ -34,6 +39,7 @@ class DivarSearchEngine:
         except (OSError, ValueError, TypeError):
             data = {"tools": []}
         self._tool_index_cache = data if isinstance(data, dict) else {"tools": []}
+        self._tool_index_mtime = current_mtime
         return self._tool_index_cache
 
     @staticmethod
@@ -60,7 +66,6 @@ class DivarSearchEngine:
         return value
 
     def build_query(self, tool_name, variant=None, aliases=None):
-        """Build a human-readable marketplace query from the live tool index."""
         query = self._resolve_tool_name(tool_name)
         if not query and aliases:
             query = str(aliases[0]).strip()
@@ -79,59 +84,38 @@ class DivarSearchEngine:
         query = self.build_query(query, variant, aliases)
         if not city or not query:
             return {"results": [], "search_url": "", "error": "INVALID_SEARCH_INPUT"}
-
-        url = (
-            f"https://divar.ir/s/{city}"
-            f"?q={requests.utils.quote(query)}"
-        )
-        response = requests.get(
-            url,
-            headers=self.headers,
-            timeout=20,
-            allow_redirects=True,
-        )
+        url = f"https://divar.ir/s/{city}?q={requests.utils.quote(query)}"
+        response = requests.get(url, headers=self.headers, timeout=20, allow_redirects=True)
         response.raise_for_status()
         return self.parse_results(response.text, url)
 
     def filter_results(self, results, tool_name, variant=None):
         if not tool_name:
             return results
-
         normalized_tool = self._normalize_text(self._resolve_tool_name(tool_name))
         tokens = re.findall(r"[a-z0-9]+", normalized_tool)
-        model_tokens = [
-            token for token in tokens
-            if any(char.isdigit() for char in token)
-        ]
+        model_tokens = [token for token in tokens if any(char.isdigit() for char in token)]
         if not model_tokens:
             return results
-
         filtered = []
         for item in results:
             title = self._normalize_text(item.get("title", ""))
             if not all(token in title for token in model_tokens):
                 continue
-
             if variant and variant != "BASE" and normalized_tool == "bosch gbh 2-26":
-                variant_pattern = (
-                    rf"\bgbh[\s-]*2[\s-]*26[\s-]*"
-                    rf"{re.escape(variant.lower())}\b"
-                )
+                variant_pattern = rf"\bgbh[\s-]*2[\s-]*26[\s-]*{re.escape(variant.lower())}\b"
                 if not re.search(variant_pattern, title):
                     continue
-
             if item.get("price") is None:
                 continue
             filtered.append(item)
-
         return filtered
 
     def get_market_prices(self, search_result):
         prices = []
         for item in search_result.get("results", []):
-            price = item.get("price")
             try:
-                price = float(price)
+                price = float(item.get("price"))
             except (TypeError, ValueError):
                 continue
             if price > 0:
@@ -144,9 +128,7 @@ class DivarSearchEngine:
         match = re.search(r"([0-9۰-۹][0-9۰-۹,\.\s]*)\s*تومان", title)
         if not match:
             return None
-        value = match.group(1).translate(
-            str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
-        )
+        value = match.group(1).translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789"))
         value = value.replace(",", "").replace(".", "").replace(" ", "")
         try:
             price = int(value)
@@ -158,12 +140,10 @@ class DivarSearchEngine:
         soup = BeautifulSoup(html, "html.parser")
         results = []
         seen = set()
-
         for link in soup.find_all("a", href=True):
             title = link.get_text(" ", strip=True)
             if not title:
                 continue
-
             href = link.get("href", "")
             if href.startswith("/"):
                 href = "https://divar.ir" + href
@@ -171,11 +151,5 @@ class DivarSearchEngine:
             if "/v/" not in href or href in seen:
                 continue
             seen.add(href)
-
-            results.append({
-                "title": title,
-                "price": self.extract_price(title),
-                "url": href,
-            })
-
+            results.append({"title": title, "price": self.extract_price(title), "url": href})
         return {"results": results, "search_url": search_url}
