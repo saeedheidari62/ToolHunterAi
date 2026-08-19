@@ -3,7 +3,7 @@ from pathlib import Path
 
 from backend.api import _error, get_dynamic_market_data
 from backend.tool_knowledge_builder import ToolKnowledgeBuilder
-from backend.tool_candidate_promoter import ToolCandidatePromoter
+from backend.ai.tool_candidate_promoter import ToolCandidatePromoter
 from backend.divar_search_engine import DivarSearchEngine
 
 
