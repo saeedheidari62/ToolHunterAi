@@ -1,103 +1,12 @@
 {
   "tools": [
-    {
-      "id": "bosch_gbh_2_26",
-      "name": "Bosch GBH 2-26",
-      "brand": "Bosch",
-      "category": "Rotary Hammer",
-      "file": "bosch_gbh_2_26.json",
-      "aliases": [
-        "gbh226",
-        "gbh 2 26",
-        "gbh 2-26",
-        "bosch 2 26",
-        "بوش ۲۶",
-        "بتن کن بوش"
-      ]
-    },
-    {
-      "id": "makita_hr2470",
-      "name": "Makita HR2470",
-      "brand": "Makita",
-      "category": "Rotary Hammer",
-      "file": "makita_hr2470.json",
-      "aliases": [
-        "hr2470",
-        "hr 2470",
-        "makita 2470",
-        "ماکیتا 2470",
-        "ماکیتا hr2470",
-        "ماکیتا اچ آر 2470",
-        "بتن کن ماکیتا"
-      ]
-    },
-    {
-      "id": "bosch_gsh500",
-      "name": "Bosch GSH500",
-      "brand": "Bosch",
-      "category": "Demolition Hammer",
-      "file": "bosch_gsh500.json",
-      "aliases": [
-        "gsh500",
-        "gsh 500",
-        "bosch gsh500",
-        "bosch gsh 500",
-        "بتن کن بوش gsh500",
-        "بتن کن بوش مدل gsh500",
-        "چکش تخریب بوش gsh500"
-      ]
-    },
-    {
-      "id": "dewalt_d25810",
-      "name": "DeWalt D25810",
-      "brand": "DeWalt",
-      "category": "Demolition Hammer",
-      "file": "dewalt_d25810.json",
-      "aliases": [
-        "d25810",
-        "d 25810",
-        "dewalt d25810",
-        "dewalt d 25810",
-        "دیوالت d25810",
-        "دیوالت 25810",
-        "چکش تخریب دیوالت"
-      ]
-    },
-    {
-      "id": "bosch_p10",
-      "name": "Bosch P10",
-      "brand": "Bosch",
-      "category": "Jigsaw",
-      "file": "bosch_p10.json",
-      "aliases": [
-        "bosch p10",
-        "بوش p10",
-        "بوش p۱۰"
-      ]
-    },
-    {
-      "id": "bosch_pss280",
-      "name": "Bosch PSS280",
-      "brand": "Bosch",
-      "category": "Orbital Sander",
-      "file": "bosch_pss280.json",
-      "aliases": [
-        "pss280",
-        "bosch pss280",
-        "بوش pss280"
-      ]
-    },
-    {
-      "id": "makita_3600b",
-      "name": "Makita 3600B",
-      "brand": "Makita",
-      "category": "Router",
-      "file": "makita_3600b.json",
-      "aliases": [
-        "3600b",
-        "makita 3600b",
-        "ماکیتا 3600b"
-      ]
-    }
+    {"id":"bosch_gbh_2_26","name":"Bosch GBH 2-26","brand":"Bosch","category":"Rotary Hammer","file":"bosch_gbh_2_26.json","aliases":["gbh226","gbh 2 26","gbh 2-26","bosch 2 26","بوش ۲۶","بتن کن بوش"]},
+    {"id":"makita_hr2470","name":"Makita HR2470","brand":"Makita","category":"Rotary Hammer","file":"makita_hr2470.json","aliases":["hr2470","hr 2470","makita 2470","ماکیتا 2470","ماکیتا hr2470","ماکیتا اچ آر 2470","بتن کن ماکیتا"]},
+    {"id":"bosch_gsh500","name":"Bosch GSH500","brand":"Bosch","category":"Demolition Hammer","file":"bosch_gsh500.json","aliases":["gsh500","gsh 500","bosch gsh500","bosch gsh 500","بتن کن بوش gsh500","بتن کن بوش مدل gsh500","چکش تخریب بوش gsh500"]},
+    {"id":"dewalt_d25810","name":"DeWalt D25810","brand":"DeWalt","category":"Demolition Hammer","file":"dewalt_d25810.json","aliases":["d25810","d 25810","dewalt d25810","dewalt d 25810","دیوالت d25810","دیوالت 25810","چکش تخریب دیوالت"]},
+    {"id":"bosch_p10","name":"Bosch P10","brand":"Bosch","category":"Jigsaw","file":"bosch_p10.json","aliases":["bosch p10","بوش p10","بوش p۱۰"]},
+    {"id":"bosch_pss280","name":"Bosch PSS280","brand":"Bosch","category":"Orbital Sander","file":"bosch_pss280.json","aliases":["pss280","bosch pss280","بوش pss280"]},
+    {"id":"makita_3600b","name":"Makita 3600B","brand":"Makita","category":"Router","file":"makita_3600b.json","aliases":["3600b","makita 3600b","ماکیتا 3600b"]},
+    {"id":"makita_8281d_wae","name":"Makita 8281D WAE","brand":"Makita","category":"Cordless Screwdriver","file":"makita_8281d_wae.json","aliases":["8281D","8281DWAE","makita 8281D","makita 8281DWAE","ماکیتا 8281D","ماکیتا 8281DWAE"]}
   ]
 }
