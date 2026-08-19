@@ -3,7 +3,6 @@ from pathlib import Path
 
 from .description_analyzer import analyze_description
 from .price_analyzer import analyze_price
-from .market_price_engine import MarketPriceEngine
 from .image_analyzer import analyze_image
 from .image_downloader import ImageDownloader
 
@@ -31,7 +30,6 @@ def _normalize_market_confidence(value):
 
 
 def make_decision(ad_data):
-    market_price_engine = MarketPriceEngine()
     image_downloader = ImageDownloader()
     tool_name = ad_data["tool_name"]
     tool = load_tool(tool_name)
@@ -65,7 +63,6 @@ def make_decision(ad_data):
 
     asking_price = ad_data.get("asking_price", 0)
     market_data = ad_data.get("market_data")
-
     price_result = analyze_price(tool, asking_price, market_data=market_data)
     market_confidence = _normalize_market_confidence(price_result.get("market_confidence"))
     price_status = price_result["price_status"]
@@ -112,9 +109,15 @@ def make_decision(ad_data):
     buy_score = max(0, min(100, round(buy_score)))
     risk_score = max(0, min(100, round(risk_score)))
 
+    # Low-confidence dynamic market evidence must never support an immediate BUY.
+    # PriceAnalyzer already falls back to the static baseline, but the decision
+    # layer must also preserve that uncertainty instead of treating the score as
+    # fully reliable.
     if price_signal == "PRICE_ON_REQUEST":
         decision = "REVIEW"
     elif not has_test and not has_warranty:
+        decision = "REVIEW"
+    elif market_confidence == "LOW":
         decision = "REVIEW"
     elif buy_score >= 85 and risk_score <= 40:
         decision = "BUY"
