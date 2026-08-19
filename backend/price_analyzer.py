@@ -125,7 +125,12 @@ def analyze_price(tool_data, asking_price, market_data=None):
     reasons = [benchmark_reason]
 
     if isinstance(market_data, dict) and market_data.get("valid") and not use_dynamic_market:
-        reasons.append("Dynamic market data did not meet the minimum trust requirements, so the static baseline was used.")
+        if dynamic_confidence_level == "LOW":
+            reasons.append("Dynamic market confidence is LOW; the static baseline was used.")
+        elif dynamic_sample_count < 2:
+            reasons.append("Dynamic market data has fewer than 2 effective samples; the static baseline was used.")
+        else:
+            reasons.append("Dynamic market data did not meet the minimum trust requirements, so the static baseline was used.")
 
     if asking_price < low * 0.90:
         score, status = 80, "VERY_GOOD_PRICE"
