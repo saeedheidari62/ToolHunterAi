@@ -7,16 +7,32 @@ def analyze_price(tool_data, asking_price, market_data=None):
         if isinstance(market_data, dict)
         else None
     )
+    dynamic_sample_count = 0
+    try:
+        dynamic_sample_count = int(market_data.get("sample_count", 0)) if isinstance(market_data, dict) else 0
+    except (TypeError, ValueError):
+        dynamic_sample_count = 0
+
+    dynamic_min = market_data.get("min_price") if isinstance(market_data, dict) else None
+    dynamic_max = market_data.get("max_price") if isinstance(market_data, dict) else None
+    dynamic_median = market_data.get("median_price") if isinstance(market_data, dict) else None
+    dynamic_range_valid = all(
+        isinstance(value, (int, float)) and float(value) > 0
+        for value in (dynamic_min, dynamic_max, dynamic_median)
+    ) and float(dynamic_min) <= float(dynamic_median) <= float(dynamic_max)
+
     use_dynamic_market = (
         isinstance(market_data, dict)
         and market_data.get("valid")
         and dynamic_confidence in ("HIGH", "MEDIUM")
+        and dynamic_sample_count >= 2
+        and dynamic_range_valid
     )
 
     if use_dynamic_market:
         market = {
-            "used_price_min": market_data.get("min_price"),
-            "used_price_max": market_data.get("max_price"),
+            "used_price_min": dynamic_min,
+            "used_price_max": dynamic_max,
         }
         market_source = "dynamic"
     else:
@@ -47,11 +63,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "market_source": market_source,
         }
 
-    market_reference = (
-        market_data.get("median_price")
-        if use_dynamic_market and market_data.get("median_price") is not None
-        else (low + high) / 2
-    )
+    market_reference = dynamic_median if use_dynamic_market and dynamic_median is not None else (low + high) / 2
 
     try:
         market_reference = float(market_reference)
@@ -70,8 +82,10 @@ def analyze_price(tool_data, asking_price, market_data=None):
     difference_percent = ((asking_price - market_reference) / market_reference) * 100
     reasons = []
 
-    if isinstance(market_data, dict) and market_data.get("valid") and dynamic_confidence == "LOW":
-        reasons.append("Dynamic market data had LOW confidence, so the static market baseline was used.")
+    if isinstance(market_data, dict) and market_data.get("valid") and (
+        dynamic_confidence == "LOW" or dynamic_sample_count < 2 or not dynamic_range_valid
+    ):
+        reasons.append("Dynamic market data was not strong enough, so the static market baseline was used.")
 
     if asking_price < low * 0.90:
         score, status = 80, "VERY_GOOD_PRICE"
