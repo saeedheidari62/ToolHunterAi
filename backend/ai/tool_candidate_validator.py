@@ -15,6 +15,16 @@ class ToolCandidateValidator:
         value = str(city or "tehran").strip().lower()
         return self.CITY_ALIASES.get(value)
 
+    @staticmethod
+    def _confidence_from_count(count):
+        if count >= 3:
+            return "HIGH"
+        if count >= 2:
+            return "MEDIUM"
+        if count == 1:
+            return "LOW"
+        return "NONE"
+
     def validate(self, candidate, city=None):
         if not isinstance(candidate, dict):
             return None
@@ -65,7 +75,7 @@ class ToolCandidateValidator:
             return {**base, "status": "UNVERIFIED", "market_sample_count": 0, "market_data": None, "reason": "Marketplace prices could not be validated."}
 
         count = int(market_result.get("sample_count", 0) or 0)
-        confidence_level = market_result.get("confidence") or ("HIGH" if count >= 3 else "MEDIUM" if count >= 2 else "LOW")
+        confidence_level = self._confidence_from_count(count)
         market_data = {"valid": True, "used_price_min": market_result.get("min_price"), "used_price_max": market_result.get("max_price"), "median_price": market_result.get("median_price"), "min_price": market_result.get("min_price"), "max_price": market_result.get("max_price"), "sample_count": count, "price_confidence": confidence_level, "confidence": confidence_level, "sources": ["divar"], "city": city_slug, "variant": variant}
         status = "VALIDATED" if count >= self.min_samples else "UNVERIFIED"
         return {**base, "status": status, "market_sample_count": count, "market_data": market_data, "reason": "Candidate model was found in multiple marketplace listings." if status == "VALIDATED" else "Insufficient marketplace evidence to validate the candidate."}
