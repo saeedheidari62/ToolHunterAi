@@ -243,7 +243,16 @@ def analyze_single_ad(ad):
             decision_data = _decision_payload(tool_id, asking_price, collected_ad, ad_analysis, item["text"], image_file=ad.get("image_file"), image_urls=ad.get("image_urls", []))
             decision = make_decision(decision_data)
             individual_results.append({"tool_id": tool_id, "asking_price": asking_price, "decision": decision})
-        return _error("MULTIPLE_TOOLS", title=collected_ad["title"], matched_tools=tool_ids, multi_tool_analysis=multi_result, individual_results=individual_results, decision="REVIEW", reason="Multiple tools were detected and each tool was analyzed independently.")
+        return {
+            "status": "REVIEW",
+            "message": ERROR_CODES["MULTIPLE_TOOLS"],
+            "title": collected_ad["title"],
+            "matched_tools": tool_ids,
+            "multi_tool_analysis": multi_result,
+            "individual_results": individual_results,
+            "decision": "REVIEW",
+            "reason": "Multiple tools were detected and each tool was analyzed independently.",
+        }
     tool_id = tool_ids[0]
     variant = variant_matcher.detect(collected_ad["title"] + " " + collected_ad["description"], tool_id)
     ad_analysis = analyze_ad(collected_ad)
