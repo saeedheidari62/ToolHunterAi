@@ -69,8 +69,11 @@ def make_decision(ad_data):
     market_data = ad_data.get("market_data")
     price_result = analyze_price(tool, asking_price, market_data=market_data)
     market_confidence = _normalize_market_confidence(price_result.get("market_confidence"))
-    if market_confidence is None and isinstance(market_data, dict):
-        market_confidence = _normalize_market_confidence(market_data.get("confidence", market_data.get("price_confidence")))
+    supplied_market_confidence = None
+    if isinstance(market_data, dict):
+        supplied_market_confidence = _normalize_market_confidence(market_data.get("confidence", market_data.get("price_confidence")))
+        if market_confidence is None:
+            market_confidence = supplied_market_confidence
     price_status = price_result["price_status"]
     price_score = price_result["price_score"]
     price_difference_percent = price_result.get("price_difference_percent")
@@ -116,8 +119,10 @@ def make_decision(ad_data):
     buy_score = max(0, min(100, round(buy_score)))
     risk_score = max(0, min(100, round(risk_score)))
 
-    dynamic_market = market_source in {"dynamic", "dynamic_divar"}
-    low_confidence_market = market_confidence == "LOW" and isinstance(market_data, dict)
+    low_confidence_market = (
+        isinstance(market_data, dict)
+        and (market_confidence == "LOW" or supplied_market_confidence == "LOW")
+    )
     if price_signal == "PRICE_ON_REQUEST":
         decision = "REVIEW"
     elif low_confidence_market:
