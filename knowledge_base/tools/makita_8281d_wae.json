@@ -1,0 +1,19 @@
+{
+  "id": "makita_8281d_wae",
+  "tool_name": "Makita 8281D WAE",
+  "category": "Cordless Screwdriver",
+  "brand": "Makita",
+  "aliases": ["8281D", "8281DWAE", "makita 8281D", "makita 8281DWAE", "ماکیتا 8281D", "ماکیتا 8281DWAE"],
+  "technical": {"score": 50, "sources": [], "last_updated": null},
+  "brand_info": {"score": 90},
+  "market": {"new_price": null, "used_price_min": 18000000, "used_price_max": 25000000, "median_price": 22000000, "sample_count": 3, "price_confidence": "HIGH", "sources": ["divar"], "status": "available", "last_updated": null},
+  "common_failures": [],
+  "inspection": ["Test battery and charger", "Check chuck", "Test torque and speed", "Check battery health"],
+  "repair": {"difficulty": "Medium", "parts_available": true},
+  "risk": {"score": 40, "level": "Medium"},
+  "buy_score": 70,
+  "recommendation": "REVIEW",
+  "confidence": 0.94,
+  "sources": ["divar"],
+  "discovery": {"variant": "WAE", "confidence": 0.94, "evidence": ["model found in marketplace title"], "market_sample_count": 3, "technical_sources": [], "technical_confidence": "NONE"}
+}
