@@ -35,8 +35,10 @@ class ToolMatcher:
             return True
         return False
 
-    def normalize(self, text):
+    @staticmethod
+    def normalize(text):
         text = str(text or "").lower()
+        text = text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789"))
         replacements = {"-": " ", "/": " ", "_": " "}
         for old, new in replacements.items():
             text = text.replace(old, new)
