@@ -77,6 +77,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "price_reason": ["No valid market price data is available."],
             "price_difference_percent": None,
             "market_source": market_source,
+            "market_confidence": confidence_level,
         }
 
     if asking_price <= 0 or low <= 0 or high <= 0 or low > high:
@@ -86,6 +87,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "price_reason": ["Invalid market price data."],
             "price_difference_percent": None,
             "market_source": market_source,
+            "market_confidence": confidence_level,
         }
 
     market_reference = dynamic_median if use_dynamic_market and dynamic_median is not None else (low + high) / 2
@@ -102,6 +104,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "price_reason": ["Invalid market reference price."],
             "price_difference_percent": None,
             "market_source": market_source,
+            "market_confidence": confidence_level,
         }
 
     difference_percent = ((asking_price - market_reference) / market_reference) * 100
@@ -110,7 +113,9 @@ def analyze_price(tool_data, asking_price, market_data=None):
     if isinstance(market_data, dict) and market_data.get("valid") and (
         confidence_level == "LOW" or dynamic_sample_count < 2 or not dynamic_range_valid
     ):
-        reasons.append("Dynamic market data was not strong enough, so the static market baseline was used.")
+        reasons.append(
+            "Dynamic market data has LOW confidence or insufficient samples, so the static market baseline was used."
+        )
 
     if asking_price < low * 0.90:
         score, status = 80, "VERY_GOOD_PRICE"
