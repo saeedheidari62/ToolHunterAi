@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 
 from backend.evidence_layer import EvidenceLayer
@@ -85,6 +87,33 @@ class ToolCandidatePromoter:
             },
         }
 
+    def _write_json_atomic(self, path, payload):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, path)
+        except Exception:
+            try:
+                os.unlink(temp_name)
+            except OSError:
+                pass
+            raise
+
+    def _load_index(self):
+        if not self.index_path.exists():
+            return {"tools": []}
+        with self.index_path.open("r", encoding="utf-8") as handle:
+            index = json.load(handle)
+        if not isinstance(index, dict):
+            raise ValueError("tools_index.json must contain an object")
+        if not isinstance(index.get("tools"), list):
+            raise ValueError("tools_index.json must contain a tools list")
+        return index
+
     def promote(self, candidate, knowledge=None):
         if not isinstance(candidate, dict) or candidate.get("status") != "VALIDATED":
             return {"status": "REJECTED", "reason": "Candidate is not validated."}
@@ -139,7 +168,13 @@ class ToolCandidatePromoter:
         self.knowledge_dir.mkdir(parents=True, exist_ok=True)
         tool_path = self.knowledge_dir / filename
 
-        if tool_path.exists():
+        try:
+            index = self._load_index()
+        except (OSError, ValueError, TypeError) as exc:
+            return {"status": "REJECTED", "reason": "Knowledge index is invalid or unreadable.", "error": type(exc).__name__}
+
+        tools = index["tools"]
+        if tool_path.exists() or any(item.get("id") == tool_id for item in tools if isinstance(item, dict)):
             return {"status": "EXISTS", "tool_id": tool_id, "file": filename}
 
         data = knowledge if isinstance(knowledge, dict) else self._build_default_knowledge(candidate)
@@ -159,20 +194,9 @@ class ToolCandidatePromoter:
         if not validation["success"]:
             return {"status": "REJECTED", "reason": "Generated knowledge failed schema validation.", "errors": validation["errors"]}
 
-        if self.index_path.exists():
-            with self.index_path.open("r", encoding="utf-8") as handle:
-                index = json.load(handle)
-        else:
-            index = {"tools": []}
-
-        tools = index.setdefault("tools", [])
-        if any(item.get("id") == tool_id for item in tools if isinstance(item, dict)):
-            return {"status": "EXISTS", "tool_id": tool_id, "file": filename}
-
-        with tool_path.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
-
-        tools.append({
+        new_index = dict(index)
+        new_tools = list(tools)
+        new_tools.append({
             "id": tool_id,
             "name": f"{brand} {model}".strip(),
             "brand": brand,
@@ -180,9 +204,20 @@ class ToolCandidatePromoter:
             "file": filename,
             "aliases": data.get("aliases", [model, f"{brand} {model}".strip()]),
         })
+        new_index["tools"] = new_tools
 
-        with self.index_path.open("w", encoding="utf-8") as handle:
-            json.dump(index, handle, ensure_ascii=False, indent=2)
+        tool_written = False
+        try:
+            self._write_json_atomic(tool_path, data)
+            tool_written = True
+            self._write_json_atomic(self.index_path, new_index)
+        except Exception as exc:
+            if tool_written:
+                try:
+                    tool_path.unlink()
+                except OSError:
+                    pass
+            return {"status": "REJECTED", "reason": "Knowledge Base persistence failed.", "error": type(exc).__name__}
 
         return {
             "status": "PROMOTED",
