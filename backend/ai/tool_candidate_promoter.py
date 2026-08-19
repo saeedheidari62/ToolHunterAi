@@ -41,7 +41,7 @@ class ToolCandidatePromoter:
         technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
         sources = list(dict.fromkeys([*(["divar"] if market_data else []), *technical_sources, *([str(item).strip() for item in evidence if str(item).strip()] if isinstance(evidence, list) else [])]))
         market_status = "available" if market_data else "unavailable"
-        return {"tool_name": f"{brand} {model}".strip(), "category": candidate.get("category", "toolbox"), "brand": brand, "aliases": list(dict.fromkeys([model, f"{brand} {model}".strip(), variant] if variant else [model, f"{brand} {model}".strip()])), "technical": technical_data, "brand_info": {"score": 0}, "market": {"new_price": market_data.get("new_price"), "used_price_min": market_data.get("used_price_min"), "used_price_max": market_data.get("used_price_max"), "median_price": market_data.get("median_price"), "sample_count": market_sample_count, "price_confidence": market_data.get("price_confidence", 0.0), "sources": market_data.get("sources", ["divar"] if market_data else []), "status": market_status, "last_updated": market_data.get("last_updated")}, "common_failures": candidate.get("common_failures", []), "inspection": candidate.get("inspection", []), "repair": candidate.get("repair", {}), "risk": candidate.get("risk", {"score": 50, "level": "Medium"}), "confidence": confidence, "sources": sources, "buy_score": candidate.get("buy_score", 50), "recommendation": candidate.get("recommendation", "REVIEW"), "discovery": {"variant": variant, "confidence": confidence, "evidence": evidence, "market_sample_count": market_sample_count, "technical_sources": technical_sources, "technical_confidence": technical_result.get("technical_confidence", "NONE")}}
+        return {"id": self._slug(brand, model, variant), "tool_name": f"{brand} {model}".strip(), "category": candidate.get("category", "toolbox"), "brand": brand, "aliases": list(dict.fromkeys([model, f"{brand} {model}".strip(), variant] if variant else [model, f"{brand} {model}".strip()])), "technical": technical_data, "brand_info": {"score": 0}, "market": {"new_price": market_data.get("new_price"), "used_price_min": market_data.get("used_price_min"), "used_price_max": market_data.get("used_price_max"), "median_price": market_data.get("median_price"), "sample_count": market_sample_count, "price_confidence": market_data.get("price_confidence", 0.0), "sources": market_data.get("sources", ["divar"] if market_data else []), "status": market_status, "last_updated": market_data.get("last_updated")}, "common_failures": candidate.get("common_failures", []), "inspection": candidate.get("inspection", []), "repair": candidate.get("repair", {}), "risk": candidate.get("risk", {"score": 50, "level": "Medium"}), "confidence": confidence, "sources": sources, "buy_score": candidate.get("buy_score", 50), "recommendation": candidate.get("recommendation", "REVIEW"), "discovery": {"variant": variant, "confidence": confidence, "evidence": evidence, "market_sample_count": market_sample_count, "technical_sources": technical_sources, "technical_confidence": technical_result.get("technical_confidence", "NONE")}}
 
     def _write_json_atomic(self, path, payload):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,13 +67,16 @@ class ToolCandidatePromoter:
         brand = str(candidate.get("brand", "")).strip(); model = str(candidate.get("model", "")).strip(); variant = str(candidate.get("variant", "")).strip(); evidence = candidate.get("evidence", []); market_data = candidate.get("market_data") if isinstance(candidate.get("market_data"), dict) else None
         try: confidence = float(candidate.get("confidence", 0))
         except (TypeError, ValueError): confidence = 0
-        try: market_sample_count = int(market_data.get("sample_count", 0)) if market_data else 0
+        try: market_sample_count = int(market_data.get("sample_count", candidate.get("market_sample_count", 0))) if market_data else int(candidate.get("market_sample_count", 0))
         except (TypeError, ValueError): market_sample_count = 0
         if not brand or not model: return {"status": "REJECTED", "reason": "Brand and model are required."}
         if confidence < self.min_confidence: return {"status": "REJECTED", "reason": "Discovery confidence is below promotion threshold."}
         if market_sample_count < self.min_samples: return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
         if not isinstance(evidence, list) or not evidence: return {"status": "REJECTED", "reason": "Evidence is required for promotion."}
-        if market_data is None or not market_data.get("valid"): return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
+        if market_data is None: return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
+        market_data = dict(market_data)
+        market_data.setdefault("valid", True)
+        market_data.setdefault("sample_count", market_sample_count)
         technical_result = self.technical_collector.collect(candidate=candidate, description=candidate.get("description", ""), sources=candidate.get("technical_sources", []))
         technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
         technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
@@ -84,9 +87,9 @@ class ToolCandidatePromoter:
         except (OSError, ValueError, TypeError) as exc: return {"status": "REJECTED", "reason": "Knowledge index is invalid or unreadable.", "error": type(exc).__name__}
         tools = index["tools"]
         existing = next((item for item in tools if isinstance(item, dict) and item.get("id") == tool_id), None)
-        if tool_path.exists() or existing:
-            return {"status": "EXISTS", "tool_id": tool_id, "file": filename, "existing": existing}
+        if tool_path.exists() or existing: return {"status": "EXISTS", "tool_id": tool_id, "file": filename, "existing": existing}
         data = knowledge if isinstance(knowledge, dict) else self._build_default_knowledge(candidate)
+        data["id"] = tool_id
         data["evidence"] = evidence_result; data["confidence"] = confidence; data.setdefault("sources", evidence_result.get("sources", [])); data["technical"] = technical_data; data.setdefault("discovery", {})["technical_sources"] = technical_sources; data["discovery"]["technical_confidence"] = technical_result.get("technical_confidence", "NONE"); data["discovery"]["technical_last_updated"] = technical_result.get("last_updated")
         technical_normalized = self.knowledge_builder.normalize_technical(data.get("technical", {}), technical_sources)
         if technical_normalized.get("success"): data["technical"] = technical_normalized["technical"]
