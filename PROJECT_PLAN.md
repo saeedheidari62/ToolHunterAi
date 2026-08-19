@@ -7,7 +7,7 @@ Build the most trusted AI-powered marketplace assistant for buying and selling u
 Help buyers make safer decisions by analysing listings, estimating risk, and reducing fraud.
 
 ## Current Milestone
-Core MVP pipeline is implemented and under regression hardening.
+MVP implementation is complete; the project is in the final production-readiness gate.
 
 ### Working architecture
 - Divar fetch and normalization
@@ -20,17 +20,21 @@ Core MVP pipeline is implemented and under regression hardening.
 - Knowledge Base schema validation
 - Decision engine and ranking
 - History / API / web application layers
+- AI explanation layer
+- Production Render deployment configuration
 - GitHub Actions regression workflow
 
-### Current blocker
-- OpenAI API Secret is not configured in the development environment, so AI enrichment/discovery paths must remain optional and fail safely.
+### Final acceptance gate
+1. GitHub Actions CI is green on the current main commit.
+2. Production deployment is reachable and `/health` responds successfully.
+3. The reference Divar listing is successfully processed through the live production pipeline.
+4. The returned result contains tool identification, market/risk analysis, decision, and AI explanation.
 
-### Immediate priorities
-1. Keep the single `backend.api` production pipeline as the source of truth.
-2. Maintain regression coverage for every cross-layer contract.
-3. Harden Market Intelligence, Variant Intelligence, Knowledge Base persistence, and Promotion concurrency.
-4. Verify GitHub Actions health after repository changes.
-5. Activate AI enrichment only after `OPENAI_API_KEY` is available.
+### Revenue MVP — immediately after acceptance
+- Freeze the MVP architecture.
+- Expose the buyer workflow as the primary product path.
+- Measure real listing analyses, successful analyses, BUY/REVIEW/DON'T BUY distribution, and repeat usage.
+- Add only revenue-critical functionality; no opportunistic architecture changes.
 
 ## Founders
 - Saeed Heidari
