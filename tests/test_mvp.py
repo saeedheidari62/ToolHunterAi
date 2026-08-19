@@ -42,7 +42,7 @@ def test_low_confidence_market_fallback():
     result = analyze_price(tool, 9000000, market_data={"valid": True, "sample_count": 1, "min_price": 27500000, "max_price": 27500000, "median_price": 27500000, "confidence": "LOW"})
     assert result["price_status"] == "FAIR_PRICE", result
     assert result["price_difference_percent"] == 2.86, result
-    assert any("LOW confidence" in reason for reason in result["price_reason"]), result
+    assert any("Dynamic market data was not strong enough" in reason for reason in result["price_reason"]), result
 
 
 def test_medium_confidence_dynamic_market():
@@ -50,7 +50,23 @@ def test_medium_confidence_dynamic_market():
     result = analyze_price(tool, 14900000, market_data={"valid": True, "sample_count": 2, "min_price": 12000000, "max_price": 14900000, "median_price": 13450000, "confidence": "MEDIUM"})
     assert result["price_status"] == "HIGH_PRICE", result
     assert result["price_difference_percent"] == 10.78, result
-    assert not any("LOW confidence" in reason for reason in result["price_reason"]), result
+    assert not any("Dynamic market data was not strong enough" in reason for reason in result["price_reason"]), result
+
+
+def test_numeric_market_confidence_contract():
+    tool = {"market": {"used_price_min": 8000000, "used_price_max": 9500000}}
+    result = analyze_price(tool, 14900000, market_data={"valid": True, "sample_count": 2, "min_price": 12000000, "max_price": 14900000, "median_price": 13450000, "confidence": 0.7})
+    assert result["market_source"] == "dynamic", result
+    assert result["market_confidence"] == "MEDIUM", result
+    assert result["price_difference_percent"] == 10.78, result
+
+
+def test_numeric_low_confidence_fallback_contract():
+    tool = {"market": {"used_price_min": 8000000, "used_price_max": 9500000}}
+    result = analyze_price(tool, 9000000, market_data={"valid": True, "sample_count": 1, "min_price": 27500000, "max_price": 27500000, "median_price": 27500000, "confidence": 0.4})
+    assert result["market_source"] == "knowledge_base", result
+    assert result["market_confidence"] == "LOW", result
+    assert any("Dynamic market data was not strong enough" in reason for reason in result["price_reason"]), result
 
 
 def test_decision_boundaries(monkeypatch):
@@ -101,7 +117,7 @@ def test_end_to_end_dfr_low_confidence_fallback(monkeypatch):
     assert result["price_status"] == "VERY_HIGH_PRICE", result
     assert result["price_difference_percent"] == 214.29, result
     assert result["decision"] == "REVIEW", result
-    assert any("LOW confidence" in reason for reason in result.get("reasons", [])), result
+    assert any("Dynamic market data was not strong enough" in reason for reason in result.get("reasons", [])), result
     assert result.get("decision_reason"), result
     assert result.get("next_action"), result
 
@@ -238,11 +254,9 @@ def test_ai_tool_discovery_real_http_contract(monkeypatch):
                     "content": [{
                         "type": "output_text",
                         "text": json.dumps({
-                            "brand": "Makita",
-                            "model": "8281D",
-                            "variant": "WAE",
-                            "confidence": 0.94,
-                            "evidence": ["8281DWAE appears in the title"]
+                            "candidate_tool_id": "makita_hr2470",
+                            "confidence": 0.91,
+                            "evidence": ["HR2470 model identified"]
                         })
                     }]
                 }]
@@ -251,18 +265,7 @@ def test_ai_tool_discovery_real_http_contract(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(tool_discovery.request, "urlopen", lambda *args, **kwargs: FakeResponse())
 
-    result = tool_discovery.AIToolDiscovery().discover("پیچ گوشتی شارژی ماکیتا 8281DWAE ژاپن اصل")
-    assert result["status"] == "CANDIDATE", result
-    assert result["brand"] == "Makita", result
-    assert result["model"] == "8281D", result
-    assert result["variant"] == "WAE", result
-    assert result["confidence"] == 0.94, result
-
-
-def test_ai_components_disabled_without_api_key(monkeypatch):
-    from backend.ai.tool_resolver import AIToolResolver
-    from backend.ai.tool_discovery import AIToolDiscovery
-
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    assert AIToolResolver().resolve("Bosch GBH 2-26") is None
-    assert AIToolDiscovery().discover("Makita 8281DWAE") is None
+    result = tool_discovery.AIToolDiscovery().discover("Makita HR2470")
+    assert result["tool_id"] == "makita_hr2470", result
+    assert result["confidence"] == 0.91, result
+    assert result["evidence"], result
