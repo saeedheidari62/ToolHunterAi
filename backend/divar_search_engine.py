@@ -76,8 +76,16 @@ class DivarSearchEngine:
         return query
 
     def _normalize_city(self, city):
+        aliases = {
+            "تهران": "tehran", "tehran": "tehran",
+            "کرج": "karaj", "karaj": "karaj",
+            "مشهد": "mashhad", "mashhad": "mashhad",
+            "اصفهان": "isfahan", "isfahan": "isfahan",
+            "شیراز": "shiraz", "shiraz": "shiraz",
+            "تبریز": "tabriz", "tabriz": "tabriz",
+        }
         value = str(city or "").strip().lower()
-        return re.sub(r"[^a-z0-9_-]", "", value)
+        return aliases.get(value, re.sub(r"[^a-z0-9_-]", "", value))
 
     def search(self, city, query, variant=None, aliases=None):
         city = self._normalize_city(city)
