@@ -36,11 +36,18 @@ class DivarSearchEngine:
         self._tool_index_cache = data if isinstance(data, dict) else {"tools": []}
         return self._tool_index_cache
 
+    @staticmethod
+    def _normalize_text(text):
+        text = str(text or "").lower()
+        text = text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789"))
+        text = text.replace("–", "-").replace("—", "-")
+        return re.sub(r"\s+", " ", text).strip()
+
     def _resolve_tool_name(self, tool_name):
         value = str(tool_name or "").strip()
         if not value:
             return ""
-        normalized = value.lower().replace("_", " ").strip()
+        normalized = self._normalize_text(value).replace("_", " ")
         for tool in self._load_tool_index().get("tools", []):
             if not isinstance(tool, dict):
                 continue
@@ -48,7 +55,7 @@ class DivarSearchEngine:
             candidates.extend(tool.get("aliases") or [])
             for candidate in candidates:
                 candidate = str(candidate or "").strip()
-                if candidate and candidate.lower().replace("_", " ").strip() == normalized:
+                if candidate and self._normalize_text(candidate).replace("_", " ") == normalized:
                     return str(tool.get("name") or value).strip()
         return value
 
@@ -59,10 +66,8 @@ class DivarSearchEngine:
             query = str(aliases[0]).strip()
         if not query:
             return ""
-
         if variant and variant != "BASE":
             query = f"{query} {variant}"
-
         return query
 
     def _normalize_city(self, city):
@@ -79,7 +84,6 @@ class DivarSearchEngine:
             f"https://divar.ir/s/{city}"
             f"?q={requests.utils.quote(query)}"
         )
-
         response = requests.get(
             url,
             headers=self.headers,
@@ -93,19 +97,18 @@ class DivarSearchEngine:
         if not tool_name:
             return results
 
-        normalized_tool = self._resolve_tool_name(tool_name).lower()
+        normalized_tool = self._normalize_text(self._resolve_tool_name(tool_name))
         tokens = re.findall(r"[a-z0-9]+", normalized_tool)
         model_tokens = [
             token for token in tokens
             if any(char.isdigit() for char in token)
         ]
-
         if not model_tokens:
             return results
 
         filtered = []
         for item in results:
-            title = str(item.get("title", "")).lower()
+            title = self._normalize_text(item.get("title", ""))
             if not all(token in title for token in model_tokens):
                 continue
 
