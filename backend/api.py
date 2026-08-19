@@ -46,7 +46,7 @@ ERROR_CODES = {"FETCH_FAILED": "Divar advertisement could not be fetched.", "FET
 
 
 def _error(code, **extra):
-    payload = {"error": ERROR_CODES.get(code, code), "error_code": code, "message": ERROR_CODES.get(code, code)}
+    payload = {"error": code, "error_code": code, "message": ERROR_CODES.get(code, code)}
     payload.update(extra)
     return payload
 
@@ -54,7 +54,6 @@ def _error(code, **extra):
 def create_analysis_id(): return str(uuid.uuid4())
 
 def create_timestamp(): return datetime.now(timezone.utc).isoformat()
-
 def _get_cached_prepared_ad(url):
     cached = _PREPARED_AD_CACHE.get(url)
     if not cached: return None
@@ -152,8 +151,9 @@ def analyze_single_ad(ad):
             promotion = _promote_discovered_candidate(discovery, validation, collected_ad)
             if isinstance(promotion, dict) and promotion.get("status") in {"PROMOTED", "EXISTS"}:
                 matcher.reload()
+                rematched_tool_ids = matcher.match_all(match_text)
                 promoted_tool_id = promotion.get("tool_id")
-                tool_ids = [promoted_tool_id] if promoted_tool_id else matcher.match_all(match_text)
+                tool_ids = rematched_tool_ids or ([promoted_tool_id] if promoted_tool_id else [])
                 ai_resolution = {"source": "candidate_promotion", "confidence": discovery.get("confidence", 0), "evidence": discovery.get("evidence", [])}
         if not tool_ids:
             return _error("TOOL_NOT_RECOGNIZED", title=collected_ad["title"], matched_tools=[], tool_discovery=discovery, tool_discovery_validation=validation, tool_candidate_promotion=promotion)
