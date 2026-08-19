@@ -29,6 +29,7 @@ class ToolCandidateValidator:
         if confidence < 0.80: return {"status":"REJECTED","reason":"Discovery confidence is below validation threshold."}
         city_slug = self._normalize_city(city)
         base = {"brand":brand,"model":model,"variant":variant,"confidence":confidence,"evidence":candidate.get("evidence",[]),"technical_data":candidate.get("technical_data",candidate.get("technical",{})),"technical_sources":candidate.get("technical_sources",[]),"city":city_slug,"query":f"{brand} {model}"}
+        if candidate.get("tool_id"): base["tool_id"] = str(candidate["tool_id"]).strip()
         if not city_slug: return {**base,"status":"UNVERIFIED","market_sample_count":0,"market_data":None,"reason":"A supported marketplace city is required for market validation."}
         try:
             try: search_result = self.search_engine.search(city_slug, base["query"], variant=variant or None)
@@ -48,7 +49,7 @@ class ToolCandidateValidator:
         except (TypeError,ValueError): reported_count = 0
         try: search_count = int(search_result.get("sample_count",0) or 0) if isinstance(search_result,dict) else 0
         except (TypeError,ValueError): search_count = 0
-        count = max(reported_count, search_count, len(matched))
+        count = reported_count if reported_count > 0 else (search_count if search_count > 0 else len(matched))
         confidence_level = self._confidence_from_count(count)
         market_data = {"valid":True,"used_price_min":market_result.get("min_price"),"used_price_max":market_result.get("max_price"),"median_price":market_result.get("median_price"),"min_price":market_result.get("min_price"),"max_price":market_result.get("max_price"),"sample_count":count,"price_confidence":confidence_level,"confidence":confidence_level,"sources":["divar"],"city":city_slug,"variant":variant}
         status = "VALIDATED" if count >= self.min_samples else "UNVERIFIED"
