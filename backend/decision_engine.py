@@ -65,11 +65,9 @@ def make_decision(ad_data):
 
     asking_price = ad_data.get("asking_price", 0)
     market_data = ad_data.get("market_data")
-    market_confidence = _normalize_market_confidence(
-        market_data.get("confidence") if isinstance(market_data, dict) else None
-    )
 
     price_result = analyze_price(tool, asking_price, market_data=market_data)
+    market_confidence = _normalize_market_confidence(price_result.get("market_confidence"))
     price_status = price_result["price_status"]
     price_score = price_result["price_score"]
     price_difference_percent = price_result.get("price_difference_percent")
