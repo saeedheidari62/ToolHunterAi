@@ -114,11 +114,11 @@ class DivarSearchEngine:
         filtered = []
         for item in results:
             title = self._normalize_text(item.get("title", ""))
-            if not all(token in title for token in model_tokens):
+            compact_title = re.sub(r"[^a-z0-9]+", "", title)
+            if not all(token in title or token in compact_title for token in model_tokens):
                 continue
             if variant and variant != "BASE":
                 normalized_variant = self._normalize_text(variant)
-                compact_title = re.sub(r"[^a-z0-9]+", "", title)
                 compact_variant = re.sub(r"[^a-z0-9]+", "", normalized_variant)
                 if compact_variant and compact_variant not in compact_title:
                     continue
