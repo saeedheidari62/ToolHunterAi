@@ -23,16 +23,14 @@ def _normalize_market_confidence(value):
 
 
 def analyze_price(tool_data, asking_price, market_data=None):
-    """Analyze asking price against the best available market benchmark."""
+    """Analyze asking price against the strongest trustworthy market benchmark."""
     market = tool_data.get("market", {})
+    if not isinstance(market, dict):
+        market = {}
 
-    dynamic_confidence = (
-        market_data.get("confidence")
-        if isinstance(market_data, dict)
-        else None
-    )
-    confidence_level = _normalize_market_confidence(dynamic_confidence)
-    dynamic_sample_count = 0
+    dynamic_confidence = market_data.get("confidence") if isinstance(market_data, dict) else None
+    dynamic_confidence_level = _normalize_market_confidence(dynamic_confidence)
+
     try:
         dynamic_sample_count = int(market_data.get("sample_count", 0)) if isinstance(market_data, dict) else 0
     except (TypeError, ValueError):
@@ -49,22 +47,36 @@ def analyze_price(tool_data, asking_price, market_data=None):
     use_dynamic_market = (
         isinstance(market_data, dict)
         and market_data.get("valid")
-        and confidence_level in ("HIGH", "MEDIUM")
+        and dynamic_confidence_level in ("HIGH", "MEDIUM")
         and dynamic_sample_count >= 2
         and dynamic_range_valid
     )
 
     if use_dynamic_market:
-        market = {
+        benchmark = {
             "used_price_min": dynamic_min,
             "used_price_max": dynamic_max,
+            "median_price": dynamic_median,
         }
         market_source = "dynamic"
+        market_confidence = dynamic_confidence_level
+        benchmark_reason = "Dynamic market data passed the confidence, sample-count, and range checks."
     else:
+        benchmark = market
         market_source = "knowledge_base"
+        market_confidence = _normalize_market_confidence(
+            market.get("price_confidence", market.get("confidence"))
+        )
+        if not market_confidence:
+            market_confidence = "NONE"
+        benchmark_reason = "Knowledge Base market data was used because dynamic market data was unavailable or insufficient."
 
-    low = market.get("used_price_min")
-    high = market.get("used_price_max")
+    low = benchmark.get("used_price_min")
+    high = benchmark.get("used_price_max")
+    if low is None:
+        low = benchmark.get("median_price")
+    if high is None:
+        high = benchmark.get("median_price")
 
     try:
         asking_price = float(asking_price)
@@ -77,7 +89,8 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "price_reason": ["No valid market price data is available."],
             "price_difference_percent": None,
             "market_source": market_source,
-            "market_confidence": confidence_level,
+            "market_confidence": market_confidence,
+            "market_benchmark_reason": benchmark_reason,
         }
 
     if asking_price <= 0 or low <= 0 or high <= 0 or low > high:
@@ -87,11 +100,11 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "price_reason": ["Invalid market price data."],
             "price_difference_percent": None,
             "market_source": market_source,
-            "market_confidence": confidence_level,
+            "market_confidence": market_confidence,
+            "market_benchmark_reason": benchmark_reason,
         }
 
-    market_reference = dynamic_median if use_dynamic_market and dynamic_median is not None else (low + high) / 2
-
+    market_reference = benchmark.get("median_price")
     try:
         market_reference = float(market_reference)
     except (TypeError, ValueError):
@@ -104,18 +117,15 @@ def analyze_price(tool_data, asking_price, market_data=None):
             "price_reason": ["Invalid market reference price."],
             "price_difference_percent": None,
             "market_source": market_source,
-            "market_confidence": confidence_level,
+            "market_confidence": market_confidence,
+            "market_benchmark_reason": benchmark_reason,
         }
 
     difference_percent = ((asking_price - market_reference) / market_reference) * 100
-    reasons = []
+    reasons = [benchmark_reason]
 
-    if isinstance(market_data, dict) and market_data.get("valid") and (
-        confidence_level == "LOW" or dynamic_sample_count < 2 or not dynamic_range_valid
-    ):
-        reasons.append(
-            "Dynamic market data has LOW confidence or insufficient samples, so the static market baseline was used."
-        )
+    if isinstance(market_data, dict) and market_data.get("valid") and not use_dynamic_market:
+        reasons.append("Dynamic market data did not meet the minimum trust requirements, so the static baseline was used.")
 
     if asking_price < low * 0.90:
         score, status = 80, "VERY_GOOD_PRICE"
@@ -148,5 +158,6 @@ def analyze_price(tool_data, asking_price, market_data=None):
         "price_reason": reasons,
         "price_difference_percent": round(difference_percent, 2),
         "market_source": market_source,
-        "market_confidence": confidence_level,
+        "market_confidence": market_confidence,
+        "market_benchmark_reason": benchmark_reason,
     }
