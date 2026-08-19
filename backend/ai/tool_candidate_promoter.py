@@ -32,8 +32,8 @@ class ToolCandidatePromoter:
         variant = str(candidate.get("variant", "")).strip()
         confidence = float(candidate.get("confidence", 0))
         evidence = candidate.get("evidence", [])
-        market_sample_count = int(candidate.get("market_sample_count", 0))
         market_data = candidate.get("market_data") if isinstance(candidate.get("market_data"), dict) else {}
+        market_sample_count = int(market_data.get("sample_count", candidate.get("market_sample_count", 0)))
 
         technical_result = self.technical_collector.collect(
             candidate=candidate,
@@ -61,7 +61,7 @@ class ToolCandidatePromoter:
                 "used_price_min": market_data.get("used_price_min"),
                 "used_price_max": market_data.get("used_price_max"),
                 "median_price": market_data.get("median_price"),
-                "sample_count": market_data.get("sample_count", market_sample_count),
+                "sample_count": market_sample_count,
                 "price_confidence": market_data.get("price_confidence", 0.0),
                 "sources": market_data.get("sources", ["divar"] if market_data else []),
                 "status": market_status,
@@ -93,12 +93,13 @@ class ToolCandidatePromoter:
         model = str(candidate.get("model", "")).strip()
         variant = str(candidate.get("variant", "")).strip()
         evidence = candidate.get("evidence", [])
+        market_data = candidate.get("market_data") if isinstance(candidate.get("market_data"), dict) else None
         try:
             confidence = float(candidate.get("confidence", 0))
         except (TypeError, ValueError):
             confidence = 0
         try:
-            market_sample_count = int(candidate.get("market_sample_count", 0))
+            market_sample_count = int(market_data.get("sample_count", 0)) if market_data else 0
         except (TypeError, ValueError):
             market_sample_count = 0
 
@@ -110,7 +111,7 @@ class ToolCandidatePromoter:
             return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
         if not isinstance(evidence, list) or not evidence:
             return {"status": "REJECTED", "reason": "Evidence is required for promotion."}
-        if not isinstance(candidate.get("market_data"), dict):
+        if market_data is None or not market_data.get("valid"):
             return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
 
         technical_result = self.technical_collector.collect(
@@ -128,7 +129,7 @@ class ToolCandidatePromoter:
                 "sources": technical_sources,
                 **technical_data,
             },
-            market=candidate.get("market_data", {}),
+            market=market_data,
         )
         if not evidence_result["sufficient"]:
             return {"status": "REJECTED", "reason": "Unified evidence is insufficient for promotion.", "evidence": evidence_result}
@@ -158,9 +159,6 @@ class ToolCandidatePromoter:
         if not validation["success"]:
             return {"status": "REJECTED", "reason": "Generated knowledge failed schema validation.", "errors": validation["errors"]}
 
-        with tool_path.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
-
         if self.index_path.exists():
             with self.index_path.open("r", encoding="utf-8") as handle:
                 index = json.load(handle)
@@ -168,15 +166,20 @@ class ToolCandidatePromoter:
             index = {"tools": []}
 
         tools = index.setdefault("tools", [])
-        if not any(item.get("id") == tool_id for item in tools):
-            tools.append({
-                "id": tool_id,
-                "name": f"{brand} {model}".strip(),
-                "brand": brand,
-                "category": data.get("category", "toolbox"),
-                "file": filename,
-                "aliases": data.get("aliases", [model, f"{brand} {model}".strip()]),
-            })
+        if any(item.get("id") == tool_id for item in tools if isinstance(item, dict)):
+            return {"status": "EXISTS", "tool_id": tool_id, "file": filename}
+
+        with tool_path.open("w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+
+        tools.append({
+            "id": tool_id,
+            "name": f"{brand} {model}".strip(),
+            "brand": brand,
+            "category": data.get("category", "toolbox"),
+            "file": filename,
+            "aliases": data.get("aliases", [model, f"{brand} {model}".strip()]),
+        })
 
         with self.index_path.open("w", encoding="utf-8") as handle:
             json.dump(index, handle, ensure_ascii=False, indent=2)
