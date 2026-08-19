@@ -67,16 +67,20 @@ class ToolCandidatePromoter:
         brand = str(candidate.get("brand", "")).strip(); model = str(candidate.get("model", "")).strip(); variant = str(candidate.get("variant", "")).strip(); evidence = candidate.get("evidence", []); market_data = candidate.get("market_data") if isinstance(candidate.get("market_data"), dict) else None
         try: confidence = float(candidate.get("confidence", 0))
         except (TypeError, ValueError): confidence = 0
-        try: market_sample_count = int(market_data.get("sample_count", candidate.get("market_sample_count", 0))) if market_data else int(candidate.get("market_sample_count", 0))
-        except (TypeError, ValueError): market_sample_count = 0
+        candidate_count = candidate.get("market_sample_count")
+        try: candidate_count = int(candidate_count) if candidate_count is not None else None
+        except (TypeError, ValueError): candidate_count = 0
+        try: market_count = int(market_data.get("sample_count", 0)) if market_data else 0
+        except (TypeError, ValueError): market_count = 0
         if not brand or not model: return {"status": "REJECTED", "reason": "Brand and model are required."}
         if confidence < self.min_confidence: return {"status": "REJECTED", "reason": "Discovery confidence is below promotion threshold."}
-        if market_sample_count < self.min_samples: return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
+        if candidate_count is not None and candidate_count < self.min_samples: return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
+        if market_count < self.min_samples: return {"status": "REJECTED", "reason": "Insufficient marketplace evidence for promotion."}
         if not isinstance(evidence, list) or not evidence: return {"status": "REJECTED", "reason": "Evidence is required for promotion."}
         if market_data is None: return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
         market_data = dict(market_data)
-        market_data.setdefault("valid", True)
-        market_data.setdefault("sample_count", market_sample_count)
+        if market_data.get("valid") is False: return {"status": "REJECTED", "reason": "Validated market data is required for promotion."}
+        market_data.setdefault("valid", True); market_data.setdefault("sample_count", market_count)
         technical_result = self.technical_collector.collect(candidate=candidate, description=candidate.get("description", ""), sources=candidate.get("technical_sources", []))
         technical_data = technical_result.get("technical", {}) if technical_result.get("success") else {}
         technical_sources = technical_result.get("technical_sources", []) if technical_result.get("success") else []
@@ -85,12 +89,10 @@ class ToolCandidatePromoter:
         tool_id = self._slug(brand, model, variant); filename = f"{tool_id}.json"; self.knowledge_dir.mkdir(parents=True, exist_ok=True); tool_path = self.knowledge_dir / filename
         try: index = self._load_index()
         except (OSError, ValueError, TypeError) as exc: return {"status": "REJECTED", "reason": "Knowledge index is invalid or unreadable.", "error": type(exc).__name__}
-        tools = index["tools"]
-        existing = next((item for item in tools if isinstance(item, dict) and item.get("id") == tool_id), None)
+        tools = index["tools"]; existing = next((item for item in tools if isinstance(item, dict) and item.get("id") == tool_id), None)
         if tool_path.exists() or existing: return {"status": "EXISTS", "tool_id": tool_id, "file": filename, "existing": existing}
         data = knowledge if isinstance(knowledge, dict) else self._build_default_knowledge(candidate)
-        data["id"] = tool_id
-        data["evidence"] = evidence_result; data["confidence"] = confidence; data.setdefault("sources", evidence_result.get("sources", [])); data["technical"] = technical_data; data.setdefault("discovery", {})["technical_sources"] = technical_sources; data["discovery"]["technical_confidence"] = technical_result.get("technical_confidence", "NONE"); data["discovery"]["technical_last_updated"] = technical_result.get("last_updated")
+        data["id"] = tool_id; data["evidence"] = evidence_result; data["confidence"] = confidence; data.setdefault("sources", evidence_result.get("sources", [])); data["technical"] = technical_data; data.setdefault("discovery", {})["technical_sources"] = technical_sources; data["discovery"]["technical_confidence"] = technical_result.get("technical_confidence", "NONE"); data["discovery"]["technical_last_updated"] = technical_result.get("last_updated")
         technical_normalized = self.knowledge_builder.normalize_technical(data.get("technical", {}), technical_sources)
         if technical_normalized.get("success"): data["technical"] = technical_normalized["technical"]
         validation = self.knowledge_builder.build(data)
