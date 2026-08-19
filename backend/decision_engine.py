@@ -15,6 +15,21 @@ def load_tool(tool_name):
         return json.load(file)
 
 
+def _normalize_market_confidence(value):
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized in {"HIGH", "MEDIUM", "LOW", "NONE"}:
+            return normalized
+    if isinstance(value, (int, float)):
+        if value >= 0.8:
+            return "HIGH"
+        if value >= 0.5:
+            return "MEDIUM"
+        if value > 0:
+            return "LOW"
+    return None
+
+
 def make_decision(ad_data):
     market_price_engine = MarketPriceEngine()
     image_downloader = ImageDownloader()
@@ -50,7 +65,9 @@ def make_decision(ad_data):
 
     asking_price = ad_data.get("asking_price", 0)
     market_data = ad_data.get("market_data")
-    market_confidence = market_data.get("confidence") if isinstance(market_data, dict) else None
+    market_confidence = _normalize_market_confidence(
+        market_data.get("confidence") if isinstance(market_data, dict) else None
+    )
 
     price_result = analyze_price(tool, asking_price, market_data=market_data)
     price_status = price_result["price_status"]
