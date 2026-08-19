@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from backend.api import _error, get_dynamic_market_data
 from backend.tool_knowledge_builder import ToolKnowledgeBuilder
 from backend.tool_candidate_promoter import ToolCandidatePromoter
 from backend.divar_search_engine import DivarSearchEngine
@@ -69,3 +70,40 @@ def test_promoter_does_not_duplicate_existing_tool(tmp_path):
     }
     result = promoter.promote(candidate)
     assert result["status"] == "EXISTS"
+
+
+def test_error_contract_is_structured():
+    result = _error("FETCH_FAILED", diagnostics={"fetch_attempts": 3})
+    assert result["error"] == "FETCH_FAILED"
+    assert result["message"] == "Divar advertisement could not be fetched."
+    assert result["diagnostics"]["fetch_attempts"] == 3
+
+
+def test_divar_city_normalization_has_no_implicit_fallback():
+    engine = DivarSearchEngine()
+    assert engine._normalize_city("تهران") == "tehran"
+    assert engine._normalize_city("Karaj") == "karaj"
+    assert engine._normalize_city("Unknown City") == ""
+
+
+def test_dynamic_market_rejects_unknown_city_without_search(monkeypatch):
+    from backend import api
+
+    def fail_search(*args, **kwargs):
+        raise AssertionError("market search must not run for unknown city")
+
+    monkeypatch.setattr(api.divar_search_engine, "search", fail_search)
+    assert get_dynamic_market_data("bosch_gbh_2_26", city="Unknown City") is None
+
+
+def test_dynamic_market_preserves_source(monkeypatch):
+    from backend import api
+
+    monkeypatch.setattr(api.divar_search_engine, "search", lambda *args, **kwargs: {"results": [{"title": "Bosch GBH 2-26", "price": 9000000, "url": "x"}]})
+    monkeypatch.setattr(api.divar_search_engine, "filter_results", lambda results, *args, **kwargs: results)
+    monkeypatch.setattr(api.divar_search_engine, "get_market_prices", lambda result: {"valid": True, "sample_count": 1, "min_price": 9000000, "max_price": 9000000, "median_price": 9000000})
+
+    result = get_dynamic_market_data("bosch_gbh_2_26", city="tehran")
+    assert result["source"] == "dynamic_divar"
+    assert result["city"] == "tehran"
+    assert result["confidence"] == "LOW"
