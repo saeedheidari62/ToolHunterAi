@@ -110,11 +110,12 @@ def make_decision(ad_data):
     buy_score = max(0, min(100, round(buy_score)))
     risk_score = max(0, min(100, round(risk_score)))
 
+    dynamic_market = market_source in {"dynamic", "dynamic_divar"}
     if price_signal == "PRICE_ON_REQUEST":
         decision = "REVIEW"
     elif not has_test and not has_warranty:
         decision = "REVIEW"
-    elif market_confidence == "LOW" and market_source == "dynamic":
+    elif market_confidence == "LOW" and dynamic_market:
         decision = "REVIEW"
     elif buy_score >= 85 and risk_score <= 40:
         decision = "BUY"
@@ -129,7 +130,7 @@ def make_decision(ad_data):
     elif decision == "DON'T BUY":
         decision_reason = "The combined price, advertisement, or risk signals do not meet the purchase threshold."
         next_action = "Reject this listing and compare another seller."
-    elif market_confidence == "LOW" and market_source == "dynamic":
+    elif market_confidence == "LOW" and dynamic_market:
         decision_reason = "Dynamic market confidence is LOW, so the live price benchmark is not strong enough for a final purchase decision."
         next_action = "Collect at least 2 comparable listings before making a final decision."
     elif not has_test and not has_warranty:
