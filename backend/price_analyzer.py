@@ -1,3 +1,27 @@
+def _normalize_market_confidence(value):
+    if isinstance(value, str):
+        text = value.strip().upper()
+        if text in {"HIGH", "MEDIUM", "LOW", "NONE"}:
+            return text
+        try:
+            value = float(text)
+        except (TypeError, ValueError):
+            return None
+
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if score >= 0.8:
+        return "HIGH"
+    if score >= 0.6:
+        return "MEDIUM"
+    if score > 0:
+        return "LOW"
+    return "NONE"
+
+
 def analyze_price(tool_data, asking_price, market_data=None):
     """Analyze asking price against the best available market benchmark."""
     market = tool_data.get("market", {})
@@ -7,6 +31,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
         if isinstance(market_data, dict)
         else None
     )
+    confidence_level = _normalize_market_confidence(dynamic_confidence)
     dynamic_sample_count = 0
     try:
         dynamic_sample_count = int(market_data.get("sample_count", 0)) if isinstance(market_data, dict) else 0
@@ -24,7 +49,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
     use_dynamic_market = (
         isinstance(market_data, dict)
         and market_data.get("valid")
-        and dynamic_confidence in ("HIGH", "MEDIUM")
+        and confidence_level in ("HIGH", "MEDIUM")
         and dynamic_sample_count >= 2
         and dynamic_range_valid
     )
@@ -83,7 +108,7 @@ def analyze_price(tool_data, asking_price, market_data=None):
     reasons = []
 
     if isinstance(market_data, dict) and market_data.get("valid") and (
-        dynamic_confidence == "LOW" or dynamic_sample_count < 2 or not dynamic_range_valid
+        confidence_level == "LOW" or dynamic_sample_count < 2 or not dynamic_range_valid
     ):
         reasons.append("Dynamic market data was not strong enough, so the static market baseline was used.")
 
@@ -118,4 +143,5 @@ def analyze_price(tool_data, asking_price, market_data=None):
         "price_reason": reasons,
         "price_difference_percent": round(difference_percent, 2),
         "market_source": market_source,
+        "market_confidence": confidence_level,
     }
