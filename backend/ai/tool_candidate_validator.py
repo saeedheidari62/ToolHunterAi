@@ -12,7 +12,8 @@ class ToolCandidateValidator:
         self.min_samples = int(min_samples)
 
     def _normalize_city(self, city):
-        return self.CITY_ALIASES.get(str(city or "").strip().lower())
+        value = str(city or "tehran").strip().lower()
+        return self.CITY_ALIASES.get(value)
 
     def validate(self, candidate, city=None):
         if not isinstance(candidate, dict):
