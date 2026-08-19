@@ -21,19 +21,8 @@ class AIToolDiscovery:
         payload = {
             "model": self.model,
             "input": [
-                {
-                    "role": "system",
-                    "content": (
-                        "Extract an industrial power tool candidate from marketplace text. "
-                        "Do not invent facts. Separate brand, model and variant when evidence supports them. "
-                        "If the model is unclear, return an empty model. "
-                        "This is discovery only: never claim that the candidate is already in the knowledge base."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": str(text),
-                },
+                {"role": "system", "content": "Extract an industrial power tool candidate from marketplace text. Do not invent facts. Separate brand, model and variant when evidence supports them. If the model is unclear, return an empty model. This is discovery only: never claim that the candidate is already in the knowledge base."},
+                {"role": "user", "content": str(text)},
             ],
             "text": {
                 "format": {
@@ -55,18 +44,8 @@ class AIToolDiscovery:
                 }
             },
         }
-
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        req = request.Request(
-            "https://api.openai.com/v1/responses",
-            data=data,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
+        req = request.Request("https://api.openai.com/v1/responses", data=data, headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}, method="POST")
         try:
             with request.urlopen(req, timeout=30) as response:
                 raw = json.loads(response.read().decode("utf-8"))
@@ -77,19 +56,16 @@ class AIToolDiscovery:
         if not result:
             return None
 
-        model = str(result.get("model", "")).strip()
+        model = str(result.get("model", result.get("candidate_tool_id", ""))).strip()
         confidence = result.get("confidence", 0)
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            return None
         if not model or confidence < self.min_confidence:
             return None
 
-        return {
-            "status": "CANDIDATE",
-            "brand": str(result.get("brand", "")).strip(),
-            "model": model,
-            "variant": str(result.get("variant", "")).strip(),
-            "confidence": confidence,
-            "evidence": result.get("evidence", []),
-        }
+        return {"status": "CANDIDATE", "brand": str(result.get("brand", "")).strip(), "model": model, "variant": str(result.get("variant", "")).strip(), "confidence": confidence, "evidence": result.get("evidence", [])}
 
     def _extract_result(self, response):
         for item in response.get("output", []):
