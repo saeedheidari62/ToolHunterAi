@@ -28,7 +28,6 @@ class ToolKnowledgeBuilder:
         sources = tool_data.get("sources")
         if sources is not None and not isinstance(sources, list):
             errors.append("Sources must be a list.")
-
         market = tool_data.get("market", {})
         if not isinstance(market, dict):
             errors.append("Market must be an object.")
@@ -37,7 +36,6 @@ class ToolKnowledgeBuilder:
             for field in ("used_price_min", "used_price_max"):
                 if field not in market:
                     errors.append(f"Missing market field: {field}")
-
             if market_status != "unavailable":
                 if "used_price_min" in market and "used_price_max" in market:
                     try:
@@ -85,93 +83,77 @@ class ToolKnowledgeBuilder:
         if not isinstance(technical, dict):
             return {"success": False, "errors": ["Technical data must be an object."]}
         normalized = dict(technical)
-        aliases = {
-            "voltage_v": "voltage", "power_w": "power", "wattage": "power",
-            "battery_type": "battery", "no_load_speed": "rpm", "speed_rpm": "rpm",
-            "max_torque": "torque", "chuck_size": "chuck", "weight_kg": "weight",
-            "size": "dimensions", "tool_type": "type",
-        }
+        aliases = {"voltage_v": "voltage", "power_w": "power", "wattage": "power", "battery_type": "battery", "no_load_speed": "rpm", "speed_rpm": "rpm", "max_torque": "torque", "chuck_size": "chuck", "weight_kg": "weight", "size": "dimensions", "tool_type": "type"}
         for source_key, target_key in aliases.items():
             if target_key not in normalized and source_key in normalized:
                 normalized[target_key] = normalized[source_key]
         merged_sources = list(sources or [])
-        if isinstance(normalized.get("sources"), list):
-            merged_sources.extend(normalized["sources"])
+        if isinstance(normalized.get("sources"), list): merged_sources.extend(normalized["sources"])
         normalized["sources"] = list(dict.fromkeys(x for x in merged_sources if x))
         normalized["last_updated"] = normalized.get("last_updated", datetime.now(timezone.utc).isoformat())
         return {"success": True, "technical": normalized}
 
     def normalize_market(self, market, sources=None):
-        if not isinstance(market, dict):
-            return {"success": False, "errors": ["Market must be an object."]}
+        if not isinstance(market, dict): return {"success": False, "errors": ["Market must be an object."]}
         normalized = dict(market)
         aliases = {"min_price": "used_price_min", "max_price": "used_price_max", "median": "median_price", "count": "sample_count", "confidence": "price_confidence"}
         for source_key, target_key in aliases.items():
-            if target_key not in normalized and source_key in normalized:
-                normalized[target_key] = normalized[source_key]
+            if target_key not in normalized and source_key in normalized: normalized[target_key] = normalized[source_key]
         normalized.setdefault("sample_count", 0)
         if "median_price" not in normalized:
             low, high = normalized.get("used_price_min"), normalized.get("used_price_max")
             if low is not None and high is not None:
-                try:
-                    normalized["median_price"] = (float(low) + float(high)) / 2
-                except (TypeError, ValueError):
-                    pass
+                try: normalized["median_price"] = (float(low) + float(high)) / 2
+                except (TypeError, ValueError): pass
         confidence = normalized.get("price_confidence")
-        if isinstance(confidence, str):
-            confidence_map = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.4}
-            normalized["price_confidence"] = confidence_map.get(confidence.strip().upper(), 0.0)
+        if isinstance(confidence, str): normalized["price_confidence"] = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.4}.get(confidence.strip().upper(), 0.0)
         elif confidence is None:
-            try:
-                normalized["price_confidence"] = min(1.0, int(normalized.get("sample_count", 0)) / 10.0)
-            except (TypeError, ValueError):
-                normalized["price_confidence"] = 0.0
+            try: normalized["price_confidence"] = min(1.0, int(normalized.get("sample_count", 0)) / 10.0)
+            except (TypeError, ValueError): normalized["price_confidence"] = 0.0
         else:
-            try:
-                normalized["price_confidence"] = float(confidence)
-            except (TypeError, ValueError):
-                normalized["price_confidence"] = 0.0
+            try: normalized["price_confidence"] = float(confidence)
+            except (TypeError, ValueError): normalized["price_confidence"] = 0.0
         normalized["sources"] = list(sources) if sources is not None else (normalized.get("sources") if isinstance(normalized.get("sources"), list) else [])
         normalized["last_updated"] = normalized.get("last_updated", datetime.now(timezone.utc).isoformat())
         return {"success": True, "market": normalized}
 
     def create_draft(self, tool_name, brand="", category=""):
         tool_name, brand, category = str(tool_name or "").strip(), str(brand or "").strip(), str(category or "").strip()
-        if not tool_name:
-            return {"success": False, "errors": ["Tool name is required."]}
+        if not tool_name: return {"success": False, "errors": ["Tool name is required."]}
         return {"success": True, "tool": {"tool_name": tool_name, "category": category, "brand": brand, "aliases": [tool_name], "technical": {}, "common_failures": [], "inspection": [], "repair": {}, "risk": {}, "market": {"used_price_min": None, "used_price_max": None, "median_price": None, "sample_count": 0, "price_confidence": 0.0, "sources": [], "status": "unavailable", "last_updated": None}, "confidence": "draft", "sources": []}}
 
     def enrich(self, draft, enrichment):
-        if not isinstance(draft, dict):
-            return {"success": False, "errors": ["Draft must be a dictionary."]}
-        if not isinstance(enrichment, dict):
-            return {"success": False, "errors": ["Enrichment must be a dictionary."]}
+        if not isinstance(draft, dict): return {"success": False, "errors": ["Draft must be a dictionary."]}
+        if not isinstance(enrichment, dict): return {"success": False, "errors": ["Enrichment must be a dictionary."]}
         enriched = dict(draft)
         for field in ("category", "brand", "aliases", "technical", "common_failures", "inspection", "repair", "risk", "confidence", "sources"):
-            if field in enrichment:
-                enriched[field] = enrichment[field]
+            if field in enrichment: enriched[field] = enrichment[field]
         if "technical" in enrichment:
             result = self.normalize_technical(enrichment["technical"], enrichment.get("technical_sources"))
-            if not result["success"]:
-                return result
+            if not result["success"]: return result
             enriched["technical"] = result["technical"]
         if "market" in enrichment:
             result = self.normalize_market(enrichment["market"], enrichment.get("sources"))
-            if not result["success"]:
-                return result
+            if not result["success"]: return result
             enriched["market"] = result["market"]
         validation = self.validate(enriched)
         return {"success": True, "tool": enriched} if validation["valid"] else {"success": False, "errors": validation["errors"], "tool": enriched}
 
     def build(self, tool_data):
-        validation = self.validate(tool_data)
-        return {"success": True, "tool": tool_data} if validation["valid"] else {"success": False, "errors": validation["errors"]}
+        if not isinstance(tool_data, dict): return {"success": False, "errors": ["Tool data must be a dictionary."]}
+        normalized = dict(tool_data)
+        market_result = self.normalize_market(normalized.get("market", {}))
+        if market_result["success"]:
+            normalized["market"] = market_result["market"]
+        technical_result = self.normalize_technical(normalized.get("technical", {}))
+        if technical_result["success"]:
+            normalized["technical"] = technical_result["technical"]
+        validation = self.validate(normalized)
+        return {"success": True, "tool": normalized} if validation["valid"] else {"success": False, "errors": validation["errors"]}
 
     def save(self, tool_id, tool_data):
         result = self.build(tool_data)
-        if not result["success"]:
-            return result
+        if not result["success"]: return result
         file_path = self.base_path / f"{tool_id}.json"
-        with open(file_path, "w", encoding="utf-8") as file:
-            json.dump(tool_data, file, ensure_ascii=False, indent=2)
+        with open(file_path, "w", encoding="utf-8") as file: json.dump(result["tool"], file, ensure_ascii=False, indent=2)
         return {"success": True, "tool_id": tool_id, "file": str(file_path)}
