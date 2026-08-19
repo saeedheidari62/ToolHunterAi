@@ -69,6 +69,7 @@ def make_decision(ad_data):
     price_score = price_result["price_score"]
     price_difference_percent = price_result.get("price_difference_percent")
     market_source = price_result.get("market_source", "knowledge_base")
+    market_benchmark_reason = price_result.get("market_benchmark_reason", "")
 
     if price_signal != "PRICE_ON_REQUEST":
         reasons.extend(price_result["price_reason"])
@@ -109,15 +110,11 @@ def make_decision(ad_data):
     buy_score = max(0, min(100, round(buy_score)))
     risk_score = max(0, min(100, round(risk_score)))
 
-    # Low-confidence dynamic market evidence must never support an immediate BUY.
-    # PriceAnalyzer already falls back to the static baseline, but the decision
-    # layer must also preserve that uncertainty instead of treating the score as
-    # fully reliable.
     if price_signal == "PRICE_ON_REQUEST":
         decision = "REVIEW"
     elif not has_test and not has_warranty:
         decision = "REVIEW"
-    elif market_confidence == "LOW":
+    elif market_confidence == "LOW" and market_source == "dynamic":
         decision = "REVIEW"
     elif buy_score >= 85 and risk_score <= 40:
         decision = "BUY"
@@ -132,14 +129,14 @@ def make_decision(ad_data):
     elif decision == "DON'T BUY":
         decision_reason = "The combined price, advertisement, or risk signals do not meet the purchase threshold."
         next_action = "Reject this listing and compare another seller."
-    elif market_confidence == "LOW":
-        decision_reason = "Market confidence is LOW, so the current price benchmark is not strong enough for a final purchase decision."
+    elif market_confidence == "LOW" and market_source == "dynamic":
+        decision_reason = "Dynamic market confidence is LOW, so the live price benchmark is not strong enough for a final purchase decision."
         next_action = "Collect at least 2 comparable listings before making a final decision."
     elif not has_test and not has_warranty:
         decision_reason = "Seller verification is insufficient because neither testing nor warranty is available."
         next_action = "Request an in-person test and confirm warranty or return terms before payment."
     elif price_status in ("HIGH_PRICE", "VERY_HIGH_PRICE"):
-        decision_reason = "The asking price is above the reliable market benchmark."
+        decision_reason = "The asking price is above the selected market benchmark."
         next_action = "Negotiate toward the market range or compare another listing."
     else:
         decision_reason = "The current signals are not strong enough for an immediate BUY."
@@ -157,6 +154,7 @@ def make_decision(ad_data):
         "has_warranty": has_warranty,
         "market_confidence": market_confidence,
         "market_source": market_source,
+        "market_benchmark_reason": market_benchmark_reason,
         "price_status": price_status,
         "price_score": price_score,
         "price_difference_percent": price_difference_percent,
