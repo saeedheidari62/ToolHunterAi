@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from .opportunity_contract import build_opportunity_contract
 from .opportunity_engine import OpportunityEngine
 
 
@@ -107,6 +108,8 @@ class AutoScanner:
 
         unique = self._deduplicate(opportunities)
         ranked = self._global_rank(opportunities, limit=top_n)
+        buyer_opportunities = [build_opportunity_contract(item) for item in ranked["opportunities"]]
+        buyer_best = next((item for item in buyer_opportunities if item["status"] == "BUY_NOW"), None)
         attempted = len(cities) * len(tools)
         failed = len(errors)
         return {
@@ -114,7 +117,8 @@ class AutoScanner:
             "opportunities": ranked["total"], "candidate_pool": len(opportunities),
             "unique_candidates": len(unique), "duplicates_removed": len(opportunities) - len(unique),
             "city_runs": city_runs, "ranking": ranked["opportunities"],
-            "best_choice": ranked["best_opportunity"], "errors": errors,
+            "best_choice": ranked["best_opportunity"], "buyer_opportunities": buyer_opportunities,
+            "buyer_best_choice": buyer_best, "errors": errors,
             "scan_health": {
                 "status": "DEGRADED" if failed else "HEALTHY",
                 "attempted_tool_runs": attempted,
