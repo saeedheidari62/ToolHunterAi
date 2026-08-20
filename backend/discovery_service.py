@@ -7,7 +7,7 @@ class DiscoveryService:
     """Turn a marketplace search into a bounded set of analyzed listings."""
 
     MAX_LIMIT = 5
-    SEARCH_POOL_SIZE = 20
+    SEARCH_POOL_SIZE = 50
 
     @staticmethod
     def _pre_rank_candidates(candidates, query):
@@ -29,6 +29,21 @@ class DiscoveryService:
             reverse=True,
         )
 
+    @staticmethod
+    def _deduplicate_candidates(candidates):
+        """Remove duplicate marketplace candidates by token first, then URL."""
+        seen = set()
+        unique = []
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("token") or item.get("url")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            unique.append(item)
+        return unique
+
     def discover(self, city, query, variant=None, limit=5):
         city = str(city or "").strip()
         query = str(query or "").strip()
@@ -46,6 +61,7 @@ class DiscoveryService:
 
         search_result = divar_search_engine.search(city, query, variant=variant)
         candidates = search_result.get("results", []) if isinstance(search_result, dict) else []
+        candidates = self._deduplicate_candidates(candidates)
         filtered = divar_search_engine.filter_results(candidates, query, variant)
 
         analysis_pool = filtered[: self.SEARCH_POOL_SIZE]
@@ -77,7 +93,7 @@ class DiscoveryService:
             "searched": len(candidates),
             "filtered": len(filtered),
             "analysis_pool": len(analysis_pool),
-            "selected": min(len(filtered), limit),
+            "selected": len(selected_candidates),
             "analyzed": len(results),
             "best_choice": ranking.get("best_choice"),
             "ranking": ranking.get("ranking", []),
