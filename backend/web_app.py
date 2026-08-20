@@ -63,6 +63,14 @@ def discover():
     return jsonify(result)
 
 
+def _positive_int(value, default, maximum):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return min(max(parsed, 1), maximum)
+
+
 @app.route("/scan", methods=["POST"])
 def scan():
     data = request.get_json(silent=True) or request.form
@@ -76,6 +84,7 @@ def scan():
         cities = [item.strip() for item in cities.split(",") if item.strip()]
     if isinstance(tool_ids, str):
         tool_ids = [item.strip() for item in tool_ids.split(",") if item.strip()]
+    cities = list(dict.fromkeys(cities))[:6]
     if not cities:
         return jsonify({"error": "INVALID_SCAN_INPUT", "message": "at least one city is required."}), 400
     if tool_ids:
@@ -87,16 +96,18 @@ def scan():
                 "message": "unknown tool id(s)",
                 "unknown_tool_ids": unknown,
             }), 400
+    limit_per_tool = _positive_int(data.get("limit_per_tool", 5), 5, 5)
+    top_n = _positive_int(data.get("top_n", 10), 10, 50)
     scan_cities = getattr(auto_scanner, "scan_cities", None)
     if scan_cities is not None:
         result = scan_cities(
             cities,
-            limit_per_tool=data.get("limit_per_tool", 5),
-            top_n=data.get("top_n"),
+            limit_per_tool=limit_per_tool,
+            top_n=top_n,
             tool_ids=tool_ids or None,
         )
     else:
-        result = auto_scanner.scan(cities[0], data.get("limit_per_tool", 5))
+        result = auto_scanner.scan(cities[0], limit_per_tool)
     if result.get("error"):
         return jsonify(result), 400
     return jsonify(result)
