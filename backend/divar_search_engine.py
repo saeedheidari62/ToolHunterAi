@@ -60,6 +60,10 @@ class DivarSearchEngine:
         text = text.replace("ي", "ی").replace("ك", "ک")
         return re.sub(r"\s+", " ", text).strip()
 
+    @staticmethod
+    def _compact(text):
+        return re.sub(r"[^a-z0-9آ-ی]+", "", text)
+
     def _resolve_tool_name(self, tool_name):
         value = str(tool_name or "").strip()
         if not value:
@@ -106,20 +110,38 @@ class DivarSearchEngine:
     def filter_results(self, results, tool_name, variant=None):
         if not tool_name:
             return results
+
         normalized_tool = self._normalize_text(self._resolve_tool_name(tool_name))
         tokens = re.findall(r"[a-z0-9]+", normalized_tool)
         model_tokens = [token for token in tokens if any(char.isdigit() for char in token)]
         if not model_tokens:
             return results
+
+        aliases = []
+        normalized_lookup = normalized_tool.replace("_", " ")
+        for tool in self._load_tool_index().get("tools", []):
+            if not isinstance(tool, dict):
+                continue
+            name = self._normalize_text(tool.get("name", "")).replace("_", " ")
+            if name == normalized_lookup:
+                aliases = [str(alias) for alias in (tool.get("aliases") or []) if alias]
+                break
+
+        match_terms = [normalized_tool] + aliases
+        match_compacts = [self._compact(self._normalize_text(term)) for term in match_terms]
+        match_compacts = [term for term in match_compacts if any(char.isdigit() for char in term)]
+
         filtered = []
         for item in results:
             title = self._normalize_text(item.get("title", ""))
-            compact_title = re.sub(r"[^a-z0-9]+", "", title)
-            if not all(token in title or token in compact_title for token in model_tokens):
+            compact_title = self._compact(title)
+            model_match = all(token in title or token in compact_title for token in model_tokens)
+            alias_match = any(term and term in compact_title for term in match_compacts)
+            if not (model_match or alias_match):
                 continue
             if variant and variant != "BASE":
                 normalized_variant = self._normalize_text(variant)
-                compact_variant = re.sub(r"[^a-z0-9]+", "", normalized_variant)
+                compact_variant = self._compact(normalized_variant)
                 if compact_variant and compact_variant not in compact_title:
                     continue
             if item.get("price") is None:
