@@ -79,6 +79,41 @@ def test_discover_ranks_analyzed_candidates(monkeypatch):
     ]
 
 
+def test_discover_pre_ranks_relevant_candidates_before_analysis(monkeypatch):
+    service = DiscoveryService()
+    analyzed_urls = []
+
+    class FakeSearch:
+        def search(self, city, query, variant=None):
+            return {
+                "results": [
+                    {"url": "https://divar.ir/v/weak", "title": "دریل حرفه ای", "price": 8000000},
+                    {"url": "https://divar.ir/v/exact", "title": "Makita HR2470 دریل بتن کن", "price": 8000000},
+                    {"url": "https://divar.ir/v/partial", "title": "HR2470", "price": 7000000},
+                ]
+            }
+
+        def filter_results(self, results, query, variant=None):
+            return results
+
+    monkeypatch.setattr("backend.discovery_service.divar_search_engine", FakeSearch())
+
+    def fake_analyze(ad):
+        analyzed_urls.append(ad["url"])
+        return {"decision": "BUY", "url": ad["url"], "buy_score": 90}
+
+    monkeypatch.setattr("backend.discovery_service.analyze_single_ad", fake_analyze)
+
+    result = service.discover("tehran", "makita_hr2470", limit=2)
+
+    assert result["selected"] == 2
+    assert result["analyzed"] == 2
+    assert analyzed_urls == [
+        "https://divar.ir/v/exact",
+        "https://divar.ir/v/partial",
+    ]
+
+
 def test_filter_results_accepts_persian_model_alias_and_rejects_unrelated_listing():
     engine = DivarSearchEngine()
     results = [
