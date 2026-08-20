@@ -8,6 +8,7 @@ class DiscoveryService:
 
     MAX_LIMIT = 5
     SEARCH_POOL_SIZE = 50
+    MAX_SEARCH_BATCHES = 5
 
     @staticmethod
     def _pre_rank_candidates(candidates, query):
@@ -59,7 +60,17 @@ class DiscoveryService:
             limit = 5
         limit = max(1, min(limit, self.MAX_LIMIT))
 
-        search_result = divar_search_engine.search(city, query, variant=variant)
+        search_batches = getattr(divar_search_engine, "search_batches", None)
+        if callable(search_batches):
+            search_result = search_batches(
+                city,
+                query,
+                variant=variant,
+                max_batches=self.MAX_SEARCH_BATCHES,
+            )
+        else:
+            search_result = divar_search_engine.search(city, query, variant=variant)
+
         candidates = search_result.get("results", []) if isinstance(search_result, dict) else []
         candidates = self._deduplicate_candidates(candidates)
         filtered = divar_search_engine.filter_results(candidates, query, variant)
@@ -99,4 +110,6 @@ class DiscoveryService:
             "ranking": ranking.get("ranking", []),
             "errors": errors,
             "search_error": search_result.get("error") if isinstance(search_result, dict) else "SEARCH_FAILED",
+            "search_batches": search_result.get("batch_count", 1) if isinstance(search_result, dict) else 1,
+            "search_errors": search_result.get("errors", []) if isinstance(search_result, dict) else [],
         }
