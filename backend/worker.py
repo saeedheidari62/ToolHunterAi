@@ -7,7 +7,7 @@ from .notification_ledger import NotificationLedger
 from .production_config import ProductionConfig
 from .production_worker import ProductionWorker
 from .telegram_notification import TelegramNotificationProvider
-from .worker_lock import WorkerLock
+from .worker_execution import run_production_cycle
 
 
 def build_worker(config):
@@ -21,26 +21,10 @@ def build_worker(config):
 
 def main(config=None, worker=None, lock=None):
     config = config or ProductionConfig()
-    validation = config.validate()
-    if not validation["ok"]:
-        print(validation["error"], file=sys.stderr)
-        return 1
-    if not config.worker_enabled:
-        print("WORKER_DISABLED")
-        return 0
-
-    lock = lock or WorkerLock()
-    if not lock.acquire():
-        print("WORKER_LOCKED")
-        return 0
-
-    try:
-        worker = worker or build_worker(config)
-        result = worker.run_once()
-        print(result)
-        return 0 if result.get("status") == "COMPLETED" else 1
-    finally:
-        lock.release()
+    worker = worker or (build_worker(config) if config.worker_enabled else None)
+    result = run_production_cycle(config=config, worker=worker, lock=lock)
+    print(result)
+    return 0 if result["status"] in {"COMPLETED", "DISABLED", "LOCKED"} else 1
 
 
 if __name__ == "__main__":
