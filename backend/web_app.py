@@ -6,6 +6,7 @@ from backend.auto_scanner import AutoScanner
 from backend.deal_events import DealEventLedger
 from backend.discovery_service import DiscoveryService
 from backend.tool_catalog import ToolCatalog
+from backend.history_manager import get_history
 
 app = Flask(__name__)
 auto_scanner = AutoScanner()
@@ -105,12 +106,7 @@ def scan():
     top_n = _positive_int(data.get("top_n", 10), 10, 50)
     scan_cities = getattr(auto_scanner, "scan_cities", None)
     if scan_cities is not None:
-        result = scan_cities(
-            cities,
-            limit_per_tool=limit_per_tool,
-            top_n=top_n,
-            tool_ids=tool_ids or None,
-        )
+        result = scan_cities(cities, limit_per_tool=limit_per_tool, top_n=top_n, tool_ids=tool_ids or None)
     else:
         result = auto_scanner.scan(cities[0], limit_per_tool)
     if result.get("error"):
