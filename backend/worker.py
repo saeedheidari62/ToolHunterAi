@@ -7,6 +7,7 @@ from .notification_ledger import NotificationLedger
 from .production_config import ProductionConfig
 from .production_worker import ProductionWorker
 from .telegram_notification import TelegramNotificationProvider
+from .worker_lock import WorkerLock
 
 
 def build_worker(config):
@@ -18,7 +19,7 @@ def build_worker(config):
     return ProductionWorker(runner, delivery)
 
 
-def main(config=None, worker=None):
+def main(config=None, worker=None, lock=None):
     config = config or ProductionConfig()
     validation = config.validate()
     if not validation["ok"]:
@@ -27,10 +28,19 @@ def main(config=None, worker=None):
     if not config.worker_enabled:
         print("WORKER_DISABLED")
         return 0
-    worker = worker or build_worker(config)
-    result = worker.run_once()
-    print(result)
-    return 0 if result.get("status") == "COMPLETED" else 1
+
+    lock = lock or WorkerLock()
+    if not lock.acquire():
+        print("WORKER_LOCKED")
+        return 0
+
+    try:
+        worker = worker or build_worker(config)
+        result = worker.run_once()
+        print(result)
+        return 0 if result.get("status") == "COMPLETED" else 1
+    finally:
+        lock.release()
 
 
 if __name__ == "__main__":
