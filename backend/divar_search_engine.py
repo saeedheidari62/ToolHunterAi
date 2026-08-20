@@ -112,9 +112,9 @@ class DivarSearchEngine:
         value = self._normalize_text(city).strip()
         return self.CITY_SLUGS.get(value, "")
 
-    def search(self, city, query, variant=None, aliases=None):
+    def _search_query(self, city, query):
         city = self._normalize_city(city)
-        query = self.build_query(query, variant, aliases)
+        query = str(query or "").strip()
         if not city or not query:
             return {"results": [], "search_url": "", "error": "INVALID_SEARCH_INPUT"}
         url = f"https://divar.ir/s/{city}?q={requests.utils.quote(query)}"
@@ -124,6 +124,10 @@ class DivarSearchEngine:
         except requests.RequestException as exc:
             return {"results": [], "search_url": url, "error": "MARKET_FETCH_FAILED", "details": str(exc)}
         return self.parse_results(response.text, url)
+
+    def search(self, city, query, variant=None, aliases=None):
+        query = self.build_query(query, variant, aliases)
+        return self._search_query(city, query)
 
     def search_batches(self, city, query, variant=None, max_batches=None):
         """Run several independent marketplace queries and merge their results.
@@ -136,10 +140,15 @@ class DivarSearchEngine:
         primary = self.build_query(query, variant)
         aliases = self._tool_aliases(query)
         queries = [primary]
+        normalized_queries = {self._normalize_text(primary)} if primary else set()
         for alias in aliases:
-            candidate = self.build_query(alias, variant)
-            if candidate and self._normalize_text(candidate) not in {self._normalize_text(item) for item in queries}:
-                queries.append(candidate)
+            alias_query = str(alias).strip()
+            if variant and variant != "BASE":
+                alias_query = f"{alias_query} {variant}"
+            normalized_alias = self._normalize_text(alias_query)
+            if alias_query and normalized_alias not in normalized_queries:
+                queries.append(alias_query)
+                normalized_queries.add(normalized_alias)
             if len(queries) >= batch_limit:
                 break
 
@@ -147,7 +156,7 @@ class DivarSearchEngine:
         search_urls = []
         errors = []
         for batch_query in queries[:batch_limit]:
-            result = self.search(city, batch_query)
+            result = self._search_query(city, batch_query)
             if result.get("search_url"):
                 search_urls.append(result["search_url"])
             combined.extend(result.get("results", []))
