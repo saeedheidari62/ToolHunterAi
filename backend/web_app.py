@@ -3,10 +3,12 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 from backend.api import analyze_single_ad
 from backend.auto_scanner import AutoScanner
 from backend.discovery_service import DiscoveryService
+from backend.tool_catalog import ToolCatalog
 
 app = Flask(__name__)
 auto_scanner = AutoScanner()
 discovery_service = DiscoveryService()
+tool_catalog = ToolCatalog()
 
 
 @app.route("/")
@@ -21,6 +23,11 @@ def health():
         "service": "ToolHunterAI Web",
         "ai_discovery_enabled": True,
     }), 200
+
+
+@app.route("/catalog", methods=["GET"])
+def catalog():
+    return jsonify({"tools": tool_catalog.all()}), 200
 
 
 @app.route("/analyze", methods=["GET", "POST"])
