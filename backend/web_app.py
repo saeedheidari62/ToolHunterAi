@@ -22,6 +22,8 @@ def health():
         "status": "ok",
         "service": "ToolHunterAI Web",
         "ai_discovery_enabled": True,
+        "api_version": "v1",
+        "catalog_size": len(tool_catalog.all()),
     }), 200
 
 
