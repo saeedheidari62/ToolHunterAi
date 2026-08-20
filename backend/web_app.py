@@ -16,7 +16,11 @@ def index():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "service": "ToolHunterAI Web"}), 200
+    return jsonify({
+        "status": "ok",
+        "service": "ToolHunterAI Web",
+        "ai_discovery_enabled": True,
+    }), 200
 
 
 @app.route("/analyze", methods=["GET", "POST"])
