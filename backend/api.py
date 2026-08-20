@@ -26,8 +26,8 @@ from .ai.tool_candidate_promoter import ToolCandidatePromoter
 
 app = Flask(__name__)
 collector = AdCollector()
-diw ar_collector = DiwarCollector()
-diw ar_fetcher = DiwarFetcher()
+diwar_collector = DiwarCollector()
+diwar_fetcher = DiwarFetcher()
 matcher = ToolMatcher()
 variant_matcher = ToolVariantMatcher()
 multi_tool_analyzer = MultiToolAnalyzer()
@@ -39,7 +39,7 @@ divar_search_engine = DivarSearchEngine()
 ai_tool_resolver = AIToolResolver()
 ai_tool_discovery = AIToolDiscovery()
 ai_tool_candidate_validator = ToolCandidateValidator(divar_search_engine)
-ai_tool_candidate_promoter = ToolHunterAiCandidatePromoter()
+ai_tool_candidate_promoter = ToolCandidatePromoter()
 
 _PREPARED_AD_CACHE = {}
 _PREPARED_AD_CACHE_TTL_SECONDS = 300
