@@ -24,7 +24,9 @@ class OpportunityEngine:
         for ad in results or []:
             item = dict(ad)
             item["opportunity_score"] = self.score(item)
-            if item["opportunity_score"] >= 60:
+            if item.get("decision") == "DON'T BUY" or float(item.get("risk_score", 100) or 100) > 75:
+                item["opportunity_status"] = "BLOCKED"
+            elif item["opportunity_score"] >= 60:
                 item["opportunity_status"] = "OPPORTUNITY"
             elif item["opportunity_score"] >= 40:
                 item["opportunity_status"] = "WATCH"
@@ -32,11 +34,19 @@ class OpportunityEngine:
                 item["opportunity_status"] = "LOW_VALUE"
             ranked.append(item)
 
-        ranked.sort(key=lambda x: (x["opportunity_score"], x.get("buy_score", 0), -x.get("risk_score", 100)), reverse=True)
+        ranked.sort(
+            key=lambda x: (
+                x.get("opportunity_status") != "BLOCKED",
+                x["opportunity_score"],
+                x.get("buy_score", 0),
+                -x.get("risk_score", 100),
+            ),
+            reverse=True,
+        )
         if limit is not None:
             ranked = ranked[:max(0, int(limit))]
         return {
             "total": len(ranked),
             "opportunities": ranked,
-            "best_opportunity": ranked[0] if ranked else None,
+            "best_opportunity": next((item for item in ranked if item["opportunity_status"] != "BLOCKED"), None),
         }
