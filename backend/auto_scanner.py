@@ -107,10 +107,18 @@ class AutoScanner:
 
         unique = self._deduplicate(opportunities)
         ranked = self._global_rank(opportunities, limit=top_n)
+        attempted = len(cities) * len(tools)
+        failed = len(errors)
         return {
             "cities": cities, "cities_scanned": len(cities), "tools_scanned": len(tools),
             "opportunities": ranked["total"], "candidate_pool": len(opportunities),
             "unique_candidates": len(unique), "duplicates_removed": len(opportunities) - len(unique),
             "city_runs": city_runs, "ranking": ranked["opportunities"],
             "best_choice": ranked["best_opportunity"], "errors": errors,
+            "scan_health": {
+                "status": "DEGRADED" if failed else "HEALTHY",
+                "attempted_tool_runs": attempted,
+                "failed_tool_runs": failed,
+                "successful_tool_runs": attempted - failed,
+            },
         }
