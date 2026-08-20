@@ -20,6 +20,12 @@ class DivarSearchEngine:
         "قم": "qom", "qom": "qom",
     }
 
+    ACCESSORY_PREFIXES = (
+        "کیف", "جعبه", "قطعه", "قطعات", "لوازم", "لوازم جانبی",
+        "شارژر", "باتری", "دسته", "سه نظام", "سه‌نظام", "تعمیر",
+        "تعمیرات", "آرمیچر", "کلکتور", "ذغال", "زغال",
+    )
+
     def __init__(self):
         self.headers = {
             "User-Agent": (
@@ -139,6 +145,10 @@ class DivarSearchEngine:
             alias_match = any(term and term in compact_title for term in match_compacts)
             if not (model_match or alias_match):
                 continue
+
+            if any(title.startswith(prefix) for prefix in self.ACCESSORY_PREFIXES):
+                continue
+
             if variant and variant != "BASE":
                 normalized_variant = self._normalize_text(variant)
                 compact_variant = self._compact(normalized_variant)
