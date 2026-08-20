@@ -30,3 +30,49 @@ def test_discover_caps_limit_to_five(monkeypatch):
     result = service.discover("tehran", "makita_hr2470", limit=50)
     assert result["selected"] == 5
     assert result["analyzed"] == 5
+
+
+def test_discover_ranks_analyzed_candidates(monkeypatch):
+    service = DiscoveryService()
+
+    class FakeSearch:
+        def search(self, city, query, variant=None):
+            return {
+                "results": [
+                    {"url": "https://divar.ir/v/1", "title": "tool one", "price": 1},
+                    {"url": "https://divar.ir/v/2", "title": "tool two", "price": 2},
+                ]
+            }
+
+        def filter_results(self, results, query, variant=None):
+            return results
+
+    class FakeRanker:
+        def rank(self, results):
+            return {
+                "total_ads": len(results),
+                "best_choice": results[1],
+                "ranking": list(reversed(results)),
+            }
+
+    monkeypatch.setattr("backend.discovery_service.divar_search_engine", FakeSearch())
+    monkeypatch.setattr(
+        "backend.discovery_service.analyze_single_ad",
+        lambda ad: {
+            "decision": "BUY",
+            "url": ad["url"],
+            "buy_score": 90,
+        },
+    )
+    monkeypatch.setattr("backend.discovery_service.ranker", FakeRanker())
+
+    result = service.discover("tehran", "makita_hr2470", limit=2)
+
+    assert result["searched"] == 2
+    assert result["selected"] == 2
+    assert result["analyzed"] == 2
+    assert result["best_choice"]["url"] == "https://divar.ir/v/2"
+    assert [item["url"] for item in result["ranking"]] == [
+        "https://divar.ir/v/2",
+        "https://divar.ir/v/1",
+    ]
