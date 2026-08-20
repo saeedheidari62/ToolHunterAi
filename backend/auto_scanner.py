@@ -22,6 +22,13 @@ class AutoScanner:
         tools = data.get("tools", []) if isinstance(data, dict) else []
         return [tool for tool in tools if isinstance(tool, dict) and tool.get("id")][: self.MAX_TOOLS]
 
+    def _select_tools(self, tool_ids=None):
+        tools = self.load_catalog()
+        if not tool_ids:
+            return tools
+        requested = {str(tool_id).strip() for tool_id in tool_ids if str(tool_id).strip()}
+        return [tool for tool in tools if tool.get("id") in requested]
+
     @staticmethod
     def _candidate_key(item):
         return item.get("token") or item.get("url") or item.get("id")
@@ -41,13 +48,12 @@ class AutoScanner:
         return unique
 
     def _global_rank(self, results, limit=None):
-        ranked = self.opportunity_engine.rank(self._deduplicate(results), limit=limit)
-        return ranked
+        return self.opportunity_engine.rank(self._deduplicate(results), limit=limit)
 
-    def scan(self, city, limit_per_tool=DEFAULT_LIMIT_PER_TOOL):
-        return self.scan_cities([city], limit_per_tool=limit_per_tool)
+    def scan(self, city, limit_per_tool=DEFAULT_LIMIT_PER_TOOL, tool_ids=None, top_n=None):
+        return self.scan_cities([city], limit_per_tool=limit_per_tool, tool_ids=tool_ids, top_n=top_n)
 
-    def scan_cities(self, cities, limit_per_tool=DEFAULT_LIMIT_PER_TOOL, top_n=None):
+    def scan_cities(self, cities, limit_per_tool=DEFAULT_LIMIT_PER_TOOL, top_n=None, tool_ids=None):
         if isinstance(cities, str):
             cities = [cities]
         cities = [str(city).strip() for city in (cities or []) if str(city).strip()]
@@ -59,12 +65,19 @@ class AutoScanner:
         except (TypeError, ValueError):
             limit_per_tool = self.DEFAULT_LIMIT_PER_TOOL
         limit_per_tool = max(1, min(limit_per_tool, self.DEFAULT_LIMIT_PER_TOOL))
+        try:
+            top_n = None if top_n is None else max(1, min(int(top_n), 50))
+        except (TypeError, ValueError):
+            return {"error": "INVALID_SCAN_INPUT", "message": "top_n must be an integer."}
 
         if self.discovery_service is None:
             from .discovery_service import DiscoveryService
             self.discovery_service = DiscoveryService()
 
-        tools = self.load_catalog()
+        tools = self._select_tools(tool_ids)
+        if tool_ids and not tools:
+            return {"error": "INVALID_SCAN_INPUT", "message": "no requested tools exist in the catalog."}
+
         city_runs = []
         opportunities = []
         errors = []
@@ -78,36 +91,26 @@ class AutoScanner:
                         errors.append({"city": city, "tool_id": tool["id"], "error": "INVALID_DISCOVERY_RESULT"})
                         continue
                     tool_runs.append({
-                        "tool_id": tool["id"],
-                        "tool_name": tool.get("name", ""),
-                        "searched": result.get("searched", 0),
-                        "filtered": result.get("filtered", 0),
-                        "selected": result.get("selected", 0),
-                        "analyzed": result.get("analyzed", 0),
-                        "best_choice": result.get("best_choice"),
-                        "search_batches": result.get("search_batches", 0),
+                        "tool_id": tool["id"], "tool_name": tool.get("name", ""),
+                        "searched": result.get("searched", 0), "filtered": result.get("filtered", 0),
+                        "selected": result.get("selected", 0), "analyzed": result.get("analyzed", 0),
+                        "best_choice": result.get("best_choice"), "search_batches": result.get("search_batches", 0),
                     })
                     for item in result.get("ranking", []):
                         if isinstance(item, dict):
                             enriched = dict(item)
-                            enriched["city"] = city
-                            enriched["tool_id"] = tool["id"]
-                            enriched["tool_name"] = tool.get("name", "")
+                            enriched.update({"city": city, "tool_id": tool["id"], "tool_name": tool.get("name", "")})
                             opportunities.append(enriched)
                 except Exception as exc:
                     errors.append({"city": city, "tool_id": tool["id"], "error": type(exc).__name__})
             city_runs.append({"city": city, "tools_scanned": len(tools), "tools_completed": len(tool_runs), "tool_runs": tool_runs})
 
+        unique = self._deduplicate(opportunities)
         ranked = self._global_rank(opportunities, limit=top_n)
         return {
-            "cities": cities,
-            "cities_scanned": len(cities),
-            "tools_scanned": len(tools),
-            "opportunities": ranked["total"],
-            "candidate_pool": len(opportunities),
-            "duplicates_removed": len(opportunities) - ranked["total"] if top_n is None else len(self._deduplicate(opportunities)) - ranked["total"],
-            "city_runs": city_runs,
-            "ranking": ranked["opportunities"],
-            "best_choice": ranked["best_opportunity"],
-            "errors": errors,
+            "cities": cities, "cities_scanned": len(cities), "tools_scanned": len(tools),
+            "opportunities": ranked["total"], "candidate_pool": len(opportunities),
+            "unique_candidates": len(unique), "duplicates_removed": len(opportunities) - len(unique),
+            "city_runs": city_runs, "ranking": ranked["opportunities"],
+            "best_choice": ranked["best_opportunity"], "errors": errors,
         }
