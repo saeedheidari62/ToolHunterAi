@@ -14,6 +14,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
 @app.route("/analyze", methods=["GET", "POST"])
 def analyze():
     if request.method == "GET":
@@ -56,30 +61,22 @@ def scan():
     else:
         cities = data.get("cities", data.get("city", []))
         tool_ids = data.get("tool_ids", data.get("tool_id", []))
-
     if isinstance(cities, str):
         cities = [item.strip() for item in cities.split(",") if item.strip()]
     if isinstance(tool_ids, str):
         tool_ids = [item.strip() for item in tool_ids.split(",") if item.strip()]
-
     if not cities:
         return jsonify({"error": "INVALID_SCAN_INPUT", "message": "at least one city is required."}), 400
-
-    limit_per_tool = data.get("limit_per_tool", 5)
-    top_n = data.get("top_n")
-
-    # Keep compatibility with the original single-city scanner contract while
-    # using the multi-city scanner whenever the production object supports it.
-    if hasattr(auto_scanner, "scan_cities"):
-        result = auto_scanner.scan_cities(
+    scan_cities = getattr(auto_scanner, "scan_cities", None)
+    if scan_cities is not None:
+        result = scan_cities(
             cities,
-            limit_per_tool=limit_per_tool,
-            top_n=top_n,
+            limit_per_tool=data.get("limit_per_tool", 5),
+            top_n=data.get("top_n"),
             tool_ids=tool_ids or None,
         )
     else:
-        result = auto_scanner.scan(cities[0], limit_per_tool)
-
+        result = auto_scanner.scan(cities[0], data.get("limit_per_tool", 5))
     if result.get("error"):
         return jsonify(result), 400
     return jsonify(result)
@@ -87,15 +84,13 @@ def scan():
 
 @app.route("/history")
 def history():
-    return render_template("history.html", history=[])
+    return render_template("history.html", history=get_history())
 
 
 @app.route("/dashboard")
 def dashboard():
-    data = []
+    data = get_history()
     total = len(data)
-    return render_template("dashboard.html", data=data, total=total)
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    buys = sum(1 for item in data if item.get("decision") == "BUY")
+    reviews = sum(1 for item in data if item.get("decision") == "REVIEW")
+    return render_template("dashboard.html", data=data, total=total, buys=buys, reviews=reviews)
