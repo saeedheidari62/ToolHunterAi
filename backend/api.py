@@ -26,8 +26,8 @@ from .ai.tool_candidate_promoter import ToolCandidatePromoter
 
 app = Flask(__name__)
 collector = AdCollector()
-diwar_collector = DiwarCollector()
-diwar_fetcher = DiwarFetcher()
+diw ar_collector = DiwarCollector()
+diw ar_fetcher = DiwarFetcher()
 matcher = ToolMatcher()
 variant_matcher = ToolVariantMatcher()
 multi_tool_analyzer = MultiToolAnalyzer()
@@ -39,7 +39,7 @@ divar_search_engine = DivarSearchEngine()
 ai_tool_resolver = AIToolResolver()
 ai_tool_discovery = AIToolDiscovery()
 ai_tool_candidate_validator = ToolCandidateValidator(divar_search_engine)
-ai_tool_candidate_promoter = ToolCandidatePromoter()
+ai_tool_candidate_promoter = ToolHunterAiCandidatePromoter()
 
 _PREPARED_AD_CACHE = {}
 _PREPARED_AD_CACHE_TTL_SECONDS = 300
@@ -126,12 +126,14 @@ def _decision_payload(tool_id, asking_price, collected_ad, ad_analysis, descript
     return {"tool_name": tool_id, "asking_price": asking_price or 0, "market_data": market_data, "has_test": collected_ad["has_test"], "has_warranty": collected_ad["has_warranty"], "description": description, "ad_score": ad_analysis["ad_score"], "analysis": ad_analysis["analysis"], "image_file": image_file, "image_urls": image_urls or []}
 
 def analyze_single_ad(ad):
+    source_url = ad.get("url", "") if isinstance(ad, dict) else ""
     ad = prepare_ad(ad)
-    if isinstance(ad, dict) and ad.get("_prepare_error"): return _error(ad["_prepare_error"], diagnostics=ad.get("_prepare_diagnostics", {}))
+    if isinstance(ad, dict) and ad.get("_prepare_error"): return _error(ad["_prepare_error"], diagnostics=ad.get("_prepare_diagnostics", {}), url=source_url)
     normalized = normalizer.normalize(ad)
-    if not normalized["valid"]: return _error("INVALID_AD", errors=normalized["errors"])
+    if not normalized["valid"]: return _error("INVALID_AD", errors=normalized["errors"], url=source_url)
     ad = normalized["ad"]
     collected_ad = collector.collect(title=ad["title"], description=ad["description"], price=ad["price"], seller_type=ad["seller_type"], testing=ad.get("testing", False), warranty=ad.get("warranty", False), condition=ad.get("condition", "used"), **{key: ad.get(key) for key in ("url", "city", "district", "brand_model", "category", "image_count", "image_urls", "image_file") if key in ad})
+    source_url = collected_ad.get("url") or source_url
     match_text = collected_ad["title"] + " " + collected_ad["description"] + " " + collected_ad.get("brand_model", "")
     tool_ids = matcher.match_all(match_text); ai_resolution = None
     if not tool_ids:
@@ -144,14 +146,14 @@ def analyze_single_ad(ad):
             validation = ai_tool_candidate_validator.validate(discovery, city=collected_ad.get("city")); promotion = _promote_discovered_candidate(discovery, validation, collected_ad)
             if isinstance(promotion, dict) and promotion.get("status") in {"PROMOTED", "EXISTS"}:
                 matcher.reload(); rematched_tool_ids = matcher.match_all(match_text); promoted_tool_id = str(promotion.get("tool_id") or "").strip(); tool_ids = [promoted_tool_id] if promoted_tool_id else rematched_tool_ids; ai_resolution = {"source": "candidate_promotion", "confidence": discovery.get("confidence", 0), "evidence": discovery.get("evidence", [])}
-        if not tool_ids: return _error("TOOL_NOT_RECOGNIZED", title=collected_ad["title"], matched_tools=[], tool_discovery=discovery, tool_discovery_validation=validation, tool_candidate_promotion=promotion)
+        if not tool_ids: return _error("TOOL_NOT_RECOGNIZED", title=collected_ad["title"], matched_tools=[], tool_discovery=discovery, tool_discovery_validation=validation, tool_candidate_promotion=promotion, url=source_url)
     if len(tool_ids) > 1:
         multi_result = multi_tool_analyzer.analyze(collected_ad["description"], tool_ids); ad_analysis = analyze_ad(collected_ad); individual_results = []
         for item in multi_result["tools"]:
             tool_id = item["tool_id"]; asking_price = item["asking_price"]; decision = make_decision(_decision_payload(tool_id, asking_price, collected_ad, ad_analysis, item["text"], image_file=ad.get("image_file"), image_urls=ad.get("image_urls", []))); individual_results.append({"tool_id": tool_id, "asking_price": asking_price, "decision": decision})
-        return {"status": "REVIEW", "message": ERROR_CODES["MULTIPLE_TOOLS"], "title": collected_ad["title"], "matched_tools": tool_ids, "multi_tool_analysis": multi_result, "individual_results": individual_results, "decision": "REVIEW", "reason": "Multiple tools were detected and each tool was analyzed independently"}
+        return {"status": "REVIEW", "message": ERROR_CODES["MULTIPLE_TOOLS"], "title": collected_ad["title"], "matched_tools": tool_ids, "multi_tool_analysis": multi_result, "individual_results": individual_results, "decision": "REVIEW", "reason": "Multiple tools were detected and each tool was analyzed independently", "url": source_url}
     tool_id = tool_ids[0]; variant = variant_matcher.detect(collected_ad["title"] + " " + collected_ad["description"], tool_id); ad_analysis = analyze_ad(collected_ad); market_data = get_dynamic_market_data(tool_id, collected_ad.get("city"), variant); result = make_decision(_decision_payload(tool_id, collected_ad["price"], collected_ad, ad_analysis, collected_ad["description"], market_data=market_data, image_file=ad.get("image_file"), image_urls=ad.get("image_urls", [])))
-    result.update({"has_test": collected_ad["has_test"], "has_warranty": collected_ad["has_warranty"], "price_status": result.get("price_status"), "price_difference_percent": result.get("price_difference_percent"), "ad_score": ad_analysis["ad_score"], "tool": tool_id, "variant": variant, "title": collected_ad["title"], "market_data": market_data, "market_source": (market_data or {}).get("source") if isinstance(market_data, dict) else None})
+    result.update({"has_test": collected_ad["has_test"], "has_warranty": collected_ad["has_warranty"], "price_status": result.get("price_status"), "price_difference_percent": result.get("price_difference_percent"), "ad_score": ad_analysis["ad_score"], "tool": tool_id, "variant": variant, "title": collected_ad["title"], "url": source_url, "city": collected_ad.get("city"), "market_data": market_data, "market_source": (market_data or {}).get("source") if isinstance(market_data, dict) else None})
     result["opportunity_score"] = opportunity_engine.score(result)
     result["opportunity_status"] = "OPPORTUNITY" if result["opportunity_score"] >= 60 else "WATCH" if result["opportunity_score"] >= 40 else "LOW_VALUE"
     if discovery is not None: result.update({"tool_discovery": discovery, "tool_discovery_validation": validation, "tool_candidate_promotion": promotion})
