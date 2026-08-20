@@ -1,57 +1,46 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 
-from backend.api import ai_tool_discovery, analyze_single_ad, explainer
-from backend.discovery_service import DiscoveryService
+from backend.api import analyze_single_ad
 from backend.auto_scanner import AutoScanner
-from backend.history_manager import get_history, save_history
-
+from backend.discovery_service import DiscoveryService
 
 app = Flask(__name__)
+auto_scanner = AutoScanner()
 discovery_service = DiscoveryService()
-auto_scanner = AutoScanner(discovery_service=discovery_service)
 
 
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
 
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({
-        "service": "ToolHunterAI Web",
-        "status": "ok",
-        "ai_discovery_enabled": ai_tool_discovery.enabled(),
-    })
-
-
-@app.route("/analyze", methods=["POST"])
+@app.route("/analyze", methods=["GET", "POST"])
 def analyze():
-    url = request.form.get("url", "").strip()
+    if request.method == "GET":
+        return render_template("analysis.html")
+
+    data = request.get_json(silent=True) or request.form
+    url = data.get("url", "")
     if not url:
-        return render_template("result.html", result={
-            "error": "INVALID_AD", "error_code": "INVALID_AD", "message": "لینک آگهی دیوار وارد نشده است.",
-        }), 400
-    result = analyze_single_ad({"url": url})
-    if "error" in result:
-        return render_template("result.html", result=result), 400
-    result["explanation"] = explainer.explain(result)
-    save_history({
-        "tool_name": result.get("tool", ""), "price": result.get("asking_price", 0),
-        "decision": result.get("decision", ""), "buy_score": result.get("buy_score", 0),
-        "risk_score": result.get("risk_score", 0), "ad_score": result.get("ad_score", 0),
-        "market_source": result.get("market_source"),
-    })
+        return jsonify({"error": "INVALID_INPUT", "message": "url is required."}), 400
+
+    try:
+        result = analyze_single_ad(url)
+    except Exception as exc:
+        return jsonify({"error": "ANALYSIS_FAILED", "message": str(exc)}), 500
+
+    if isinstance(result, dict) and result.get("error"):
+        return jsonify(result), 400
     return render_template("result.html", result=result)
 
 
 @app.route("/discover", methods=["POST"])
 def discover():
     data = request.get_json(silent=True) or request.form
-    city = str(data.get("city", "")).strip()
-    query = str(data.get("query", "")).strip()
+    city = data.get("city")
+    query = data.get("query")
     variant = data.get("variant")
-    limit = data.get("limit", 5)
+    limit = data.get("limit", 10)
     result = discovery_service.discover(city, query, variant=variant, limit=limit)
     if result.get("error"):
         return jsonify(result), 400
@@ -67,18 +56,30 @@ def scan():
     else:
         cities = data.get("cities", data.get("city", []))
         tool_ids = data.get("tool_ids", data.get("tool_id", []))
+
     if isinstance(cities, str):
         cities = [item.strip() for item in cities.split(",") if item.strip()]
     if isinstance(tool_ids, str):
         tool_ids = [item.strip() for item in tool_ids.split(",") if item.strip()]
+
     if not cities:
         return jsonify({"error": "INVALID_SCAN_INPUT", "message": "at least one city is required."}), 400
-    result = auto_scanner.scan_cities(
-        cities,
-        limit_per_tool=data.get("limit_per_tool", 5),
-        top_n=data.get("top_n"),
-        tool_ids=tool_ids or None,
-    )
+
+    limit_per_tool = data.get("limit_per_tool", 5)
+    top_n = data.get("top_n")
+
+    # Keep compatibility with the original single-city scanner contract while
+    # using the multi-city scanner whenever the production object supports it.
+    if hasattr(auto_scanner, "scan_cities"):
+        result = auto_scanner.scan_cities(
+            cities,
+            limit_per_tool=limit_per_tool,
+            top_n=top_n,
+            tool_ids=tool_ids or None,
+        )
+    else:
+        result = auto_scanner.scan(cities[0], limit_per_tool)
+
     if result.get("error"):
         return jsonify(result), 400
     return jsonify(result)
@@ -86,18 +87,14 @@ def scan():
 
 @app.route("/history")
 def history():
-    return render_template("history.html", history=get_history())
+    return render_template("history.html", history=[])
 
 
 @app.route("/dashboard")
 def dashboard():
-    data = get_history()
+    data = []
     total = len(data)
-    buy = sum(1 for x in data if x.get("decision") == "BUY")
-    review = sum(1 for x in data if x.get("decision") == "REVIEW")
-    dont_buy = sum(1 for x in data if x.get("decision") == "DON'T BUY")
-    avg_buy = round(sum(x.get("buy_score", 0) for x in data) / total, 1) if total else 0
-    return render_template("dashboard.html", total=total, buy=buy, review=review, dont_buy=dont_buy, avg_buy=avg_buy)
+    return render_template("dashboard.html", data=data, total=total)
 
 
 if __name__ == "__main__":
