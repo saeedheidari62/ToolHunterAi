@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from .deal_tracker import DealTracker
 from .opportunity_contract import build_opportunity_contract
 from .opportunity_engine import OpportunityEngine
 
@@ -12,10 +13,11 @@ class AutoScanner:
     MAX_CITIES = 6
     DEFAULT_LIMIT_PER_TOOL = 5
 
-    def __init__(self, catalog_path=None, discovery_service=None, opportunity_engine=None):
+    def __init__(self, catalog_path=None, discovery_service=None, opportunity_engine=None, deal_tracker=None):
         self.catalog_path = Path(catalog_path or Path(__file__).resolve().parent.parent / "knowledge_base" / "tools" / "tools_index.json")
         self.discovery_service = discovery_service
         self.opportunity_engine = opportunity_engine or OpportunityEngine()
+        self.deal_tracker = deal_tracker or DealTracker()
 
     def load_catalog(self):
         with self.catalog_path.open("r", encoding="utf-8") as handle:
@@ -110,6 +112,7 @@ class AutoScanner:
         ranked = self._global_rank(opportunities, limit=top_n)
         buyer_opportunities = [build_opportunity_contract(item) for item in ranked["opportunities"]]
         buyer_best = next((item for item in buyer_opportunities if item["status"] == "BUY_NOW"), None)
+        deal_events = self.deal_tracker.observe_many(buyer_opportunities)
         attempted = len(cities) * len(tools)
         failed = len(errors)
         return {
@@ -118,7 +121,7 @@ class AutoScanner:
             "unique_candidates": len(unique), "duplicates_removed": len(opportunities) - len(unique),
             "city_runs": city_runs, "ranking": ranked["opportunities"],
             "best_choice": ranked["best_opportunity"], "buyer_opportunities": buyer_opportunities,
-            "buyer_best_choice": buyer_best, "errors": errors,
+            "buyer_best_choice": buyer_best, "deal_events": deal_events, "errors": errors,
             "scan_health": {
                 "status": "DEGRADED" if failed else "HEALTHY",
                 "attempted_tool_runs": attempted,
