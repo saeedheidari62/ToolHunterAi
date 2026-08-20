@@ -15,7 +15,7 @@ def test_discover_caps_limit_to_five(monkeypatch):
             return {
                 "results": [
                     {"url": f"https://divar.ir/v/{index}", "title": "tool", "price": 1}
-                    for index in range(10)
+                    for index in range(60)
                 ]
             }
 
@@ -29,8 +29,37 @@ def test_discover_caps_limit_to_five(monkeypatch):
     )
 
     result = service.discover("tehran", "makita_hr2470", limit=50)
+    assert result["analysis_pool"] == 50
     assert result["selected"] == 5
     assert result["analyzed"] == 5
+
+
+def test_discover_deduplicates_candidates_before_pooling(monkeypatch):
+    service = DiscoveryService()
+
+    class FakeSearch:
+        def search(self, city, query, variant=None):
+            return {
+                "results": [
+                    {"token": "same", "url": "https://divar.ir/v/1", "title": "tool", "price": 1},
+                    {"token": "same", "url": "https://divar.ir/v/1-copy", "title": "tool", "price": 1},
+                    {"token": "unique", "url": "https://divar.ir/v/2", "title": "tool", "price": 1},
+                ]
+            }
+
+        def filter_results(self, results, query, variant=None):
+            return results
+
+    monkeypatch.setattr("backend.discovery_service.divar_search_engine", FakeSearch())
+    monkeypatch.setattr(
+        "backend.discovery_service.analyze_single_ad",
+        lambda ad: {"decision": "BUY", "url": ad["url"], "buy_score": 90},
+    )
+
+    result = service.discover("tehran", "makita_hr2470", limit=5)
+    assert result["searched"] == 2
+    assert result["selected"] == 2
+    assert result["analyzed"] == 2
 
 
 def test_discover_ranks_analyzed_candidates(monkeypatch):
@@ -59,11 +88,7 @@ def test_discover_ranks_analyzed_candidates(monkeypatch):
     monkeypatch.setattr("backend.discovery_service.divar_search_engine", FakeSearch())
     monkeypatch.setattr(
         "backend.discovery_service.analyze_single_ad",
-        lambda ad: {
-            "decision": "BUY",
-            "url": ad["url"],
-            "buy_score": 90,
-        },
+        lambda ad: {"decision": "BUY", "url": ad["url"], "buy_score": 90},
     )
     monkeypatch.setattr("backend.discovery_service.ranker", FakeRanker())
 
