@@ -21,7 +21,14 @@ def build_worker(config):
 
 def main(config=None, worker=None, lock=None):
     config = config or ProductionConfig()
-    worker = worker or (build_worker(config) if config.worker_enabled else None)
+    validation = config.validate()
+    if not validation.get("ok"):
+        print(validation.get("error", "invalid production configuration"), file=sys.stderr)
+        return 1
+    if not config.worker_enabled:
+        print("WORKER_DISABLED")
+        return 0
+    worker = worker or build_worker(config)
     result = run_production_cycle(config=config, worker=worker, lock=lock)
     print(result)
     return 0 if result["status"] in {"COMPLETED", "DISABLED", "LOCKED"} else 1
