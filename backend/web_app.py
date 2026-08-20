@@ -1,10 +1,12 @@
 from flask import Flask, jsonify, render_template, request
 
 from backend.api import ai_tool_discovery, analyze_single_ad, explainer
+from backend.discovery_service import DiscoveryService
 from backend.history_manager import get_history, save_history
 
 
 app = Flask(__name__)
+discovery_service = DiscoveryService()
 
 
 @app.route("/")
@@ -50,6 +52,19 @@ def analyze():
     })
 
     return render_template("result.html", result=result)
+
+
+@app.route("/discover", methods=["POST"])
+def discover():
+    data = request.get_json(silent=True) or request.form
+    city = str(data.get("city", "")).strip()
+    query = str(data.get("query", "")).strip()
+    variant = data.get("variant")
+    limit = data.get("limit", 5)
+    result = discovery_service.discover(city, query, variant=variant, limit=limit)
+    if result.get("error"):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 @app.route("/history")
