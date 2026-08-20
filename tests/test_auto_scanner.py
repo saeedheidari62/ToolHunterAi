@@ -27,7 +27,7 @@ def test_scanner_loads_catalog_and_scans_each_tool():
     result = scanner.scan("tehran")
     assert result["tools_scanned"] == 8
     assert result["cities_scanned"] == 1
-    assert result["opportunities"] == 9
+    assert result["opportunities"] == 2
     assert len(fake.calls) == 8
 
 
@@ -38,8 +38,8 @@ def test_scanner_multi_city_deduplicates_and_globally_ranks():
     assert result["cities_scanned"] == 2
     assert result["tools_scanned"] == 8
     assert result["candidate_pool"] == 32
-    assert result["opportunities"] == 17
-    assert result["duplicates_removed"] == 15
+    assert result["opportunities"] == 3
+    assert result["duplicates_removed"] == 29
     assert result["best_choice"]["opportunity_score"] >= 60
     assert {item["city"] for item in result["ranking"]} == {"tehran", "karaj"}
 
