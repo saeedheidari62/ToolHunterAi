@@ -1,0 +1,46 @@
+name: ToolHunterAI Production Discovery Smoke Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test production discovery endpoint
+        env:
+          PRODUCTION_URL: https://toolhunterai.onrender.com
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          status="$(curl -sS -o "$response_file" -w '%{http_code}' \
+            -X POST "$PRODUCTION_URL/discover" \
+            -H 'Content-Type: application/json' \
+            --data '{"city":"tehran","query":"Bosch GBH 2-26","limit":5}' \
+            --max-time 90)"
+
+          echo "HTTP status: $status"
+          cat "$response_file"
+
+          test "$status" = "200"
+          python - "$response_file" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as fh:
+              payload = json.load(fh)
+
+          if not isinstance(payload, dict):
+              raise SystemExit("response is not a JSON object")
+
+          required = ("results", "ranking", "best_choice")
+          missing = [key for key in required if key not in payload]
+          if missing:
+              raise SystemExit(f"missing response keys: {missing}")
+
+          print("Production discovery contract: PASS")
+          PY
