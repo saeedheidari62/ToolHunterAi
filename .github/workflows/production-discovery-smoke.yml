@@ -42,5 +42,28 @@ jobs:
           if missing:
               raise SystemExit(f"missing response keys: {missing}")
 
-          print("Production discovery contract: PASS")
+          results = payload["results"]
+          ranking = payload["ranking"]
+          best_choice = payload["best_choice"]
+
+          if not isinstance(results, list) or not results:
+              raise SystemExit("results must be a non-empty list")
+          if not isinstance(ranking, list) or not ranking:
+              raise SystemExit("ranking must be a non-empty list")
+          if not isinstance(best_choice, dict) or not best_choice:
+              raise SystemExit("best_choice must be a non-empty object")
+
+          selected = payload.get("selected")
+          analyzed = payload.get("analyzed")
+          if not isinstance(selected, int) or selected <= 0:
+              raise SystemExit(f"invalid selected count: {selected!r}")
+          if not isinstance(analyzed, int) or analyzed <= 0:
+              raise SystemExit(f"invalid analyzed count: {analyzed!r}")
+          if analyzed != selected:
+              raise SystemExit(
+                  f"analysis coverage mismatch: selected={selected}, analyzed={analyzed}"
+              )
+
+          print("Production discovery analysis gate: PASS")
+          print(f"selected={selected} analyzed={analyzed} ranking={len(ranking)}")
           PY
