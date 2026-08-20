@@ -32,3 +32,12 @@ class WorkerLock:
     def release(self):
         with self._connect() as db:
             db.execute("DELETE FROM worker_lock WHERE id = 1 AND owner = ?", (self.owner,))
+
+    def status(self):
+        with self._connect() as db:
+            row = db.execute("SELECT owner, acquired_at FROM worker_lock WHERE id = 1").fetchone()
+        if not row:
+            return {"locked": False, "stale": False}
+        age = max(0.0, time.time() - row[1])
+        stale = age >= self.stale_after_seconds
+        return {"locked": not stale, "stale": stale, "age_seconds": round(age, 3)}
