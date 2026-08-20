@@ -26,6 +26,8 @@ class DivarSearchEngine:
         "تعمیرات", "آرمیچر", "کلکتور", "ذغال", "زغال",
     )
 
+    MAX_SEARCH_BATCHES = 5
+
     def __init__(self):
         self.headers = {
             "User-Agent": (
@@ -86,6 +88,16 @@ class DivarSearchEngine:
                     return str(tool.get("name") or value).strip()
         return value
 
+    def _tool_aliases(self, tool_name):
+        normalized = self._normalize_text(self._resolve_tool_name(tool_name)).replace("_", " ")
+        for tool in self._load_tool_index().get("tools", []):
+            if not isinstance(tool, dict):
+                continue
+            name = self._normalize_text(tool.get("name", "")).replace("_", " ")
+            if name == normalized:
+                return [str(alias).strip() for alias in (tool.get("aliases") or []) if str(alias).strip()]
+        return []
+
     def build_query(self, tool_name, variant=None, aliases=None):
         query = self._resolve_tool_name(tool_name)
         if not query and aliases:
@@ -112,6 +124,42 @@ class DivarSearchEngine:
         except requests.RequestException as exc:
             return {"results": [], "search_url": url, "error": "MARKET_FETCH_FAILED", "details": str(exc)}
         return self.parse_results(response.text, url)
+
+    def search_batches(self, city, query, variant=None, max_batches=None):
+        """Run several independent marketplace queries and merge their results.
+
+        Divar's public web search does not expose a stable page cursor here, so
+        this deliberately uses known tool aliases as independent discovery
+        batches rather than inventing pagination semantics.
+        """
+        batch_limit = self.MAX_SEARCH_BATCHES if max_batches is None else max(1, int(max_batches))
+        primary = self.build_query(query, variant)
+        aliases = self._tool_aliases(query)
+        queries = [primary]
+        for alias in aliases:
+            candidate = self.build_query(alias, variant)
+            if candidate and self._normalize_text(candidate) not in {self._normalize_text(item) for item in queries}:
+                queries.append(candidate)
+            if len(queries) >= batch_limit:
+                break
+
+        combined = []
+        search_urls = []
+        errors = []
+        for batch_query in queries[:batch_limit]:
+            result = self.search(city, batch_query)
+            if result.get("search_url"):
+                search_urls.append(result["search_url"])
+            combined.extend(result.get("results", []))
+            if result.get("error"):
+                errors.append(result["error"])
+
+        return {
+            "results": combined,
+            "search_urls": search_urls,
+            "batch_count": len(queries[:batch_limit]),
+            "errors": errors,
+        }
 
     def filter_results(self, results, tool_name, variant=None):
         if not tool_name:
