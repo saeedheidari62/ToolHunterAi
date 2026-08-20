@@ -12,7 +12,6 @@ class DiscoveryService:
 
     @staticmethod
     def _pre_rank_candidates(candidates, query):
-        """Order candidates by cheap title relevance before expensive analysis."""
         normalized_query = re.sub(r"\s+", " ", str(query or "").lower().replace("_", " ")).strip()
         query_tokens = [token for token in re.findall(r"[a-z0-9]+", normalized_query) if token]
 
@@ -24,15 +23,10 @@ class DiscoveryService:
             has_price = 1 if item.get("price") not in (None, "", 0) else 0
             return (exact_match, token_hits, has_price)
 
-        return sorted(
-            enumerate(candidates),
-            key=lambda pair: (score(pair[1]), -pair[0]),
-            reverse=True,
-        )
+        return sorted(enumerate(candidates), key=lambda pair: (score(pair[1]), -pair[0]), reverse=True)
 
     @staticmethod
     def _deduplicate_candidates(candidates):
-        """Remove duplicate marketplace candidates by token first, then URL."""
         seen = set()
         unique = []
         for item in candidates:
@@ -49,10 +43,7 @@ class DiscoveryService:
         city = str(city or "").strip()
         query = str(query or "").strip()
         if not city or not query:
-            return {
-                "error": "INVALID_SEARCH_INPUT",
-                "message": "city and query are required.",
-            }
+            return {"error": "INVALID_SEARCH_INPUT", "message": "city and query are required."}
 
         try:
             limit = int(limit)
@@ -62,19 +53,13 @@ class DiscoveryService:
 
         search_batches = getattr(divar_search_engine, "search_batches", None)
         if callable(search_batches):
-            search_result = search_batches(
-                city,
-                query,
-                variant=variant,
-                max_batches=self.MAX_SEARCH_BATCHES,
-            )
+            search_result = search_batches(city, query, variant=variant, max_batches=self.MAX_SEARCH_BATCHES)
         else:
             search_result = divar_search_engine.search(city, query, variant=variant)
 
         candidates = search_result.get("results", []) if isinstance(search_result, dict) else []
         candidates = self._deduplicate_candidates(candidates)
         filtered = divar_search_engine.filter_results(candidates, query, variant)
-
         analysis_pool = filtered[: self.SEARCH_POOL_SIZE]
         ranked_candidates = self._pre_rank_candidates(analysis_pool, query)
         selected_candidates = [item for _, item in ranked_candidates[:limit]]
@@ -84,19 +69,19 @@ class DiscoveryService:
         for candidate in selected_candidates:
             url = candidate.get("url") if isinstance(candidate, dict) else ""
             if not url:
+                errors.append({"url": "", "error": "MISSING_CANDIDATE_URL"})
                 continue
-            result = analyze_single_ad({"url": url})
+            try:
+                result = analyze_single_ad({"url": url})
+            except Exception as exc:
+                errors.append({"url": url, "error": type(exc).__name__})
+                continue
             if isinstance(result, dict) and "error" in result:
                 errors.append({"url": url, "error": result})
             else:
                 results.append(result)
 
-        ranking = ranker.rank(results) if results else {
-            "total_ads": 0,
-            "best_choice": None,
-            "ranking": [],
-        }
-
+        ranking = ranker.rank(results) if results else {"total_ads": 0, "best_choice": None, "ranking": []}
         return {
             "city": city,
             "query": query,
