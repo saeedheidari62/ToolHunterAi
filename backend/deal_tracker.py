@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
+from .deal_store import DealStore
+
 
 class DealTracker:
     """Track opportunity snapshots and emit meaningful deal-change events."""
 
-    def __init__(self):
-        self._snapshots = {}
+    def __init__(self, store=None):
+        self.store = store or DealStore()
 
     @staticmethod
     def _key(item):
@@ -34,8 +36,8 @@ class DealTracker:
             return {"event": "IGNORED", "snapshot": None}
 
         current = self._snapshot(item)
-        previous = self._snapshots.get(key)
-        self._snapshots[key] = current
+        previous = self.store.get(key)
+        self.store.save(current)
 
         if previous is None:
             return {"event": "NEW_DEAL", "snapshot": current, "previous": None}
@@ -64,4 +66,4 @@ class DealTracker:
         return changes
 
     def get(self, listing_id):
-        return self._snapshots.get(listing_id)
+        return self.store.get(listing_id)
