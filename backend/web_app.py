@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
+from backend.alert_engine import AlertEngine
 from backend.api import analyze_single_ad
 from backend.auto_scanner import AutoScanner
+from backend.deal_events import DealEventLedger
 from backend.discovery_service import DiscoveryService
 from backend.tool_catalog import ToolCatalog
 
@@ -9,6 +11,7 @@ app = Flask(__name__)
 auto_scanner = AutoScanner()
 discovery_service = DiscoveryService()
 tool_catalog = ToolCatalog()
+alert_engine = AlertEngine(DealEventLedger())
 
 
 @app.route("/")
@@ -113,6 +116,13 @@ def scan():
     if result.get("error"):
         return jsonify(result), 400
     return jsonify(result)
+
+
+@app.route("/alerts", methods=["GET"])
+def alerts():
+    limit = _positive_int(request.args.get("limit", 10), 10, 50)
+    min_priority = _positive_int(request.args.get("min_priority", 70), 70, 100)
+    return jsonify({"alerts": alert_engine.recent(limit=limit, min_priority=min_priority)}), 200
 
 
 @app.route("/history")
