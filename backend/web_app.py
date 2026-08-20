@@ -2,11 +2,13 @@ from flask import Flask, jsonify, render_template, request
 
 from backend.api import ai_tool_discovery, analyze_single_ad, explainer
 from backend.discovery_service import DiscoveryService
+from backend.auto_scanner import AutoScanner
 from backend.history_manager import get_history, save_history
 
 
 app = Flask(__name__)
 discovery_service = DiscoveryService()
+auto_scanner = AutoScanner(discovery_service=discovery_service)
 
 
 @app.route("/")
@@ -33,12 +35,10 @@ def analyze():
             "message": "لینک آگهی دیوار وارد نشده است.",
         }), 400
 
-    # The UI deliberately uses the same production pipeline as the API.
     result = analyze_single_ad({"url": url})
     if "error" in result:
         return render_template("result.html", result=result), 400
 
-    # Add the same human-readable explanation layer used by the API.
     result["explanation"] = explainer.explain(result)
 
     save_history({
@@ -62,6 +62,17 @@ def discover():
     variant = data.get("variant")
     limit = data.get("limit", 5)
     result = discovery_service.discover(city, query, variant=variant, limit=limit)
+    if result.get("error"):
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@app.route("/scan", methods=["POST"])
+def scan():
+    data = request.get_json(silent=True) or request.form
+    city = str(data.get("city", "")).strip()
+    limit_per_tool = data.get("limit_per_tool", 5)
+    result = auto_scanner.scan(city, limit_per_tool=limit_per_tool)
     if result.get("error"):
         return jsonify(result), 400
     return jsonify(result)
