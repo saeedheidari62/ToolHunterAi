@@ -11,6 +11,7 @@ from backend.readiness import readiness
 from backend.tool_catalog import ToolCatalog
 from backend.watchlist_store import WatchlistStore
 from backend.history_manager import get_history
+from backend.worker_lock import WorkerLock
 
 app = Flask(__name__)
 auto_scanner = AutoScanner()
@@ -34,6 +35,19 @@ def health():
 def readiness_endpoint():
     payload = readiness(ProductionConfig())
     return jsonify(payload), 200 if payload["ready"] else 503
+
+
+@app.route("/worker/status", methods=["GET"])
+def worker_status():
+    config = ProductionConfig()
+    validation = config.validate()
+    return jsonify({
+        "service": "ToolHunterAI Worker",
+        "enabled": bool(config.worker_enabled),
+        "config_valid": bool(validation.get("ok")),
+        "lock": WorkerLock().status(),
+        "monitoring": monitoring.status(),
+    }), 200
 
 
 @app.route("/catalog", methods=["GET"])
