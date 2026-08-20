@@ -78,6 +78,15 @@ def scan():
         tool_ids = [item.strip() for item in tool_ids.split(",") if item.strip()]
     if not cities:
         return jsonify({"error": "INVALID_SCAN_INPUT", "message": "at least one city is required."}), 400
+    if tool_ids:
+        known_ids = set(tool_catalog.ids())
+        unknown = [tool_id for tool_id in tool_ids if tool_id not in known_ids]
+        if unknown:
+            return jsonify({
+                "error": "INVALID_SCAN_INPUT",
+                "message": "unknown tool id(s)",
+                "unknown_tool_ids": unknown,
+            }), 400
     scan_cities = getattr(auto_scanner, "scan_cities", None)
     if scan_cities is not None:
         result = scan_cities(
