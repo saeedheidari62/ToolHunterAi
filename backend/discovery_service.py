@@ -5,6 +5,7 @@ class DiscoveryService:
     """Turn a marketplace search into a bounded set of analyzed listings."""
 
     MAX_LIMIT = 5
+    SEARCH_POOL_SIZE = 20
 
     def discover(self, city, query, variant=None, limit=5):
         city = str(city or "").strip()
@@ -27,7 +28,8 @@ class DiscoveryService:
 
         results = []
         errors = []
-        for candidate in filtered[:limit]:
+        analysis_pool = filtered[: self.SEARCH_POOL_SIZE]
+        for candidate in analysis_pool[:limit]:
             url = candidate.get("url") if isinstance(candidate, dict) else ""
             if not url:
                 continue
@@ -48,6 +50,8 @@ class DiscoveryService:
             "query": query,
             "variant": variant,
             "searched": len(candidates),
+            "filtered": len(filtered),
+            "analysis_pool": len(analysis_pool),
             "selected": min(len(filtered), limit),
             "analyzed": len(results),
             "best_choice": ranking.get("best_choice"),
