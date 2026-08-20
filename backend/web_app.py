@@ -6,6 +6,8 @@ from backend.auto_scanner import AutoScanner
 from backend.deal_events import DealEventLedger
 from backend.discovery_service import DiscoveryService
 from backend.monitoring_controller import MonitoringController
+from backend.production_config import ProductionConfig
+from backend.readiness import readiness
 from backend.tool_catalog import ToolCatalog
 from backend.watchlist_store import WatchlistStore
 from backend.history_manager import get_history
@@ -26,6 +28,12 @@ def index():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "ToolHunterAI Web", "ai_discovery_enabled": True, "api_version": "v1", "catalog_size": len(tool_catalog.all()), "monitoring": monitoring.status()}), 200
+
+
+@app.route("/readiness", methods=["GET"])
+def readiness_endpoint():
+    payload = readiness(ProductionConfig())
+    return jsonify(payload), 200 if payload["ready"] else 503
 
 
 @app.route("/catalog", methods=["GET"])
