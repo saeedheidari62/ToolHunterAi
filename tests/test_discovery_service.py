@@ -1,4 +1,5 @@
 from backend.discovery_service import DiscoveryService
+from backend.divar_search_engine import DivarSearchEngine
 
 
 def test_discover_rejects_missing_search_input():
@@ -76,3 +77,28 @@ def test_discover_ranks_analyzed_candidates(monkeypatch):
         "https://divar.ir/v/2",
         "https://divar.ir/v/1",
     ]
+
+
+def test_filter_results_accepts_persian_model_alias_and_rejects_unrelated_listing():
+    engine = DivarSearchEngine()
+    results = [
+        {
+            "title": "دریل بتن کن بوش مدل GBH 2-26 چهار حالته",
+            "price": 8500000,
+            "url": "https://divar.ir/v/gbh226",
+        },
+        {
+            "title": "دریل بتن کن ماکیتا HR2470 سالم",
+            "price": 7000000,
+            "url": "https://divar.ir/v/hr2470",
+        },
+        {
+            "title": "کیف ابزار بوش GBH 2-26",
+            "price": 500000,
+            "url": "https://divar.ir/v/bag",
+        },
+    ]
+
+    filtered = engine.filter_results(results, "bosch_gbh_2_26")
+
+    assert [item["url"] for item in filtered] == ["https://divar.ir/v/gbh226"]
