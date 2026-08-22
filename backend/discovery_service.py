@@ -70,6 +70,7 @@ class DiscoveryService:
 
         results = []
         errors = []
+        warnings = []
         for candidate in selected_candidates:
             url = candidate.get("url") if isinstance(candidate, dict) else ""
             if not url:
@@ -88,7 +89,7 @@ class DiscoveryService:
                     fallback = self.search_fallback.analyze(candidate, tool_id, city)
                     if fallback:
                         results.append(fallback)
-                        errors.append({"url": url, "error": error_payload, "fallback": "SEARCH_RESULT_ANALYSIS"})
+                        warnings.append({"url": url, "type": "FETCH_INCOMPLETE_FALLBACK", "message": fallback["fetch_warning"]})
                         continue
                 errors.append({"url": url, "error": error_payload})
             else:
@@ -107,6 +108,7 @@ class DiscoveryService:
             "best_choice": ranking.get("best_choice"),
             "ranking": ranking.get("ranking", []),
             "errors": errors,
+            "warnings": warnings,
             "search_error": search_result.get("error") if isinstance(search_result, dict) else "SEARCH_FAILED",
             "search_batches": search_result.get("batch_count", 1) if isinstance(search_result, dict) else 1,
             "search_errors": search_result.get("errors", []) if isinstance(search_result, dict) else [],
