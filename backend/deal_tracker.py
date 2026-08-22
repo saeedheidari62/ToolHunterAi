@@ -5,7 +5,7 @@ from .deal_store import DealStore
 
 
 class DealTracker:
-    """Track opportunity snapshots and emit meaningful deal-change events."""
+    """Track qualified BUY_NOW opportunities and emit meaningful deal-change events."""
 
     def __init__(self, store=None, event_ledger=None):
         self.store = store or DealStore()
@@ -32,10 +32,18 @@ class DealTracker:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
+    @staticmethod
+    def _is_buy_now(item):
+        status = str(item.get("status", item.get("opportunity_status", ""))).upper()
+        return status == "BUY_NOW"
+
     def observe(self, item):
+        if not self._is_buy_now(item):
+            return {"event": "IGNORED", "events": [], "snapshot": None, "previous": None}
+
         key = self._key(item)
         if not key:
-            return {"event": "IGNORED", "snapshot": None}
+            return {"event": "IGNORED", "events": [], "snapshot": None, "previous": None}
         current = self._snapshot(item)
         previous = self.store.get(key)
         self.store.save(current)
