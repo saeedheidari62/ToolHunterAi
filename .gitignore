@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ToolHunterAI runtime state
+data/*.sqlite3
+worker_lock.sqlite3
