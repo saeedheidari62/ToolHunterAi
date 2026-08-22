@@ -59,3 +59,55 @@ def test_full_autonomous_cycle_blocks_delivery_after_scan_failure(tmp_path):
     assert result["status"] == "ERROR"
     assert result["delivery"] is None
     assert provider.sent == []
+
+
+class FakeAlertLedger:
+    def __init__(self, events):
+        self.events = events
+
+    def recent(self, limit=100):
+        return self.events[:limit]
+
+
+def test_full_autonomous_cycle_excludes_stale_alert(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from backend.alert_engine import AlertEngine
+
+    now = datetime.now(timezone.utc)
+
+    events = [
+        {
+            "event_id": "fresh-deal",
+            "priority": 90,
+            "event": "NEW_DEAL",
+            "tool_id": "bosch_gbh_2_26",
+            "price": 8500000,
+            "created_at": now.isoformat(),
+        },
+        {
+            "event_id": "stale-deal",
+            "priority": 90,
+            "event": "NEW_DEAL",
+            "tool_id": "makita_hr2470",
+            "price": 5000000,
+            "created_at": (now - timedelta(hours=49)).isoformat(),
+        },
+    ]
+
+    alert_engine = AlertEngine(FakeAlertLedger(events), ttl_hours=48)
+    scheduler = FakeScheduler()
+    provider = ConsoleNotificationProvider()
+    delivery = AutonomousDelivery(
+        alert_engine,
+        NotificationService(provider),
+        NotificationLedger(tmp_path / "delivery.sqlite3"),
+    )
+    worker = ProductionWorker(AutonomousRunner(scheduler), delivery)
+
+    result = worker.run_once()
+
+    assert result["status"] == "COMPLETED"
+    assert result["delivery"]["alerts_found"] == 1
+    assert result["delivery"]["delivered"] == 1
+    assert len(provider.sent) == 1
+    assert provider.sent[0]["event_id"] == "fresh-deal"
