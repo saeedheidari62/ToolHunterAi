@@ -1,6 +1,7 @@
 import re
 
 from .api import analyze_single_ad, divar_search_engine, ranker
+from .search_fallback_analyzer import SearchFallbackAnalyzer
 
 
 class DiscoveryService:
@@ -9,6 +10,9 @@ class DiscoveryService:
     MAX_LIMIT = 5
     SEARCH_POOL_SIZE = 50
     MAX_SEARCH_BATCHES = 5
+
+    def __init__(self):
+        self.search_fallback = SearchFallbackAnalyzer()
 
     @staticmethod
     def _pre_rank_candidates(candidates, query):
@@ -77,7 +81,16 @@ class DiscoveryService:
                 errors.append({"url": url, "error": type(exc).__name__})
                 continue
             if isinstance(result, dict) and "error" in result:
-                errors.append({"url": url, "error": result})
+                error_payload = result
+                error_code = str(result.get("error_code") or result.get("error") or "")
+                if error_code == "FETCH_INCOMPLETE":
+                    tool_id = "bosch_gbh_2_26" if "gbh" in query.lower() else query
+                    fallback = self.search_fallback.analyze(candidate, tool_id, city)
+                    if fallback:
+                        results.append(fallback)
+                        errors.append({"url": url, "error": error_payload, "fallback": "SEARCH_RESULT_ANALYSIS"})
+                        continue
+                errors.append({"url": url, "error": error_payload})
             else:
                 results.append(result)
 
