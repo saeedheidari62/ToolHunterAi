@@ -14,8 +14,13 @@ def build_worker(config):
     from .web_app import alert_engine, monitoring
 
     runner = AutonomousRunner(monitoring)
-    provider = TelegramNotificationProvider(config.telegram_bot_token, config.telegram_chat_id)
-    delivery = AutonomousDelivery(alert_engine, NotificationService(provider), NotificationLedger())
+    if config.notification_enabled:
+        provider = TelegramNotificationProvider(config.telegram_bot_token, config.telegram_chat_id)
+        notification_service = NotificationService(provider)
+    else:
+        from .notification import ConsoleNotificationProvider
+        notification_service = NotificationService(ConsoleNotificationProvider())
+    delivery = AutonomousDelivery(alert_engine, notification_service, NotificationLedger())
     return ProductionWorker(runner, delivery)
 
 

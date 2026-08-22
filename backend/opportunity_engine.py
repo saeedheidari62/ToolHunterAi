@@ -9,7 +9,7 @@ class OpportunityEngine:
         ad_score = float(ad.get("ad_score", 0) or 0)
         price_diff = float(ad.get("price_difference_percent", 0) or 0)
 
-        price_opportunity = max(0.0, min(30.0, -price_diff * 0.30))
+        price_opportunity = max(-30.0, min(30.0, -price_diff * 0.30))
         quality = max(0.0, min(15.0, ad_score * 0.15))
         trust = 5.0 if ad.get("has_test") else 0.0
         trust += 5.0 if ad.get("has_warranty") else 0.0

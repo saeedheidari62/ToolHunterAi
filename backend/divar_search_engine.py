@@ -153,13 +153,20 @@ class DivarSearchEngine:
                 break
 
         combined = []
+        seen_urls = set()
         search_urls = []
         errors = []
         for batch_query in queries[:batch_limit]:
             result = self._search_query(city, batch_query)
             if result.get("search_url"):
                 search_urls.append(result["search_url"])
-            combined.extend(result.get("results", []))
+            for item in result.get("results", []):
+                url = str(item.get("url", "")).strip()
+                if url and url in seen_urls:
+                    continue
+                if url:
+                    seen_urls.add(url)
+                combined.append(item)
             if result.get("error"):
                 errors.append(result["error"])
 
