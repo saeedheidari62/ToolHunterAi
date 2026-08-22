@@ -21,6 +21,10 @@ jobs:
       NOTIFICATION_ENABLED: 'true'
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      SCAN_CITIES: 'tehran,karaj'
+      SCAN_TOOL_IDS: 'bosch_gbh_2_26'
+      SCAN_INTERVAL_SECONDS: '1800'
+      SCAN_TOP_N: '10'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -38,6 +42,9 @@ jobs:
 
       - name: Compile backend
         run: python -m compileall -q backend
+
+      - name: Bootstrap production watch
+        run: python -m backend.bootstrap_production_watch
 
       - name: Run production worker
         run: python -m backend.worker
