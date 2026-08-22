@@ -98,7 +98,14 @@ class AutoScanner:
                         "searched": result.get("searched", 0), "filtered": result.get("filtered", 0),
                         "selected": result.get("selected", 0), "analyzed": result.get("analyzed", 0),
                         "best_choice": result.get("best_choice"), "search_batches": result.get("search_batches", 0),
+                        "errors": result.get("errors", []), "search_errors": result.get("search_errors", []),
                     })
+                    discovery_errors = result.get("errors", [])
+                    search_errors = result.get("search_errors", [])
+                    if discovery_errors:
+                        errors.extend({"city": city, "tool_id": tool["id"], "stage": "analysis", "details": item} for item in discovery_errors)
+                    if search_errors:
+                        errors.extend({"city": city, "tool_id": tool["id"], "stage": "search", "details": item} for item in search_errors)
                     for item in result.get("ranking", []):
                         if isinstance(item, dict):
                             enriched = dict(item)
