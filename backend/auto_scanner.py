@@ -121,7 +121,12 @@ class AutoScanner:
         buyer_best = next((item for item in buyer_opportunities if item["status"] == "BUY_NOW"), None)
         deal_events = self.deal_tracker.observe_many(buyer_opportunities)
         attempted = len(cities) * len(tools)
-        failed = len(errors)
+        failed = sum(
+            1
+            for city_run in city_runs
+            for tool_run in city_run["tool_runs"]
+            if tool_run.get("errors") or tool_run.get("search_errors")
+        )
         return {
             "cities": cities, "cities_scanned": len(cities), "tools_scanned": len(tools),
             "opportunities": ranked["total"], "candidate_pool": len(opportunities),
@@ -133,6 +138,6 @@ class AutoScanner:
                 "status": "DEGRADED" if failed else "HEALTHY",
                 "attempted_tool_runs": attempted,
                 "failed_tool_runs": failed,
-                "successful_tool_runs": attempted - failed,
+                "successful_tool_runs": max(0, attempted - failed),
             },
         }
