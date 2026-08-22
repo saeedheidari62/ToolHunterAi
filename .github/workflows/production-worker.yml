@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: toolhunterai-production-worker
@@ -18,7 +19,7 @@ jobs:
     timeout-minutes: 15
     env:
       WORKER_ENABLED: 'true'
-      NOTIFICATION_ENABLED: 'true'
+      NOTIFICATION_ENABLED: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       SCAN_CITIES: 'tehran,karaj'
@@ -40,6 +41,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Restore persistent runtime state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          artifact_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts | map(select(.name | startswith("toolhunterai-state-"))) | sort_by(.created_at) | last | .id // empty')
+          if [ -n "$artifact_id" ]; then
+            echo "Restoring runtime state from artifact $artifact_id"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > /tmp/toolhunterai-state.zip
+            unzip -o /tmp/toolhunterai-state.zip -d .
+          else
+            echo "No previous runtime state artifact found"
+          fi
+
       - name: Compile backend
         run: python -m compileall -q backend
 
@@ -48,3 +64,12 @@ jobs:
 
       - name: Run production worker
         run: python -m backend.worker
+
+      - name: Persist runtime state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolhunterai-state-${{ github.run_id }}
+          path: data/*.sqlite3
+          if-no-files-found: ignore
+          retention-days: 30
